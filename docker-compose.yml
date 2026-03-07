@@ -1,0 +1,108 @@
+services:
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    restart: always
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - api-gateway
+
+  # Base de datos para el microservicio de Identidad
+  auth-db:
+    image: postgres:15-alpine
+    container_name: auth-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # Mapeo a puerto diferente para evitar conflictos locales
+
+  # Base de datos para el microservicio Core
+  core-db:
+    image: postgres:15-alpine
+    container_name: core-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${CORE_DB_NAME}
+      POSTGRES_USER: ${CORE_DB_USER}
+      POSTGRES_PASSWORD: ${CORE_DB_PASSWORD}
+    volumes:
+      - core-db-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+
+# --- MICROSERVICIOS ---
+  identity-service:
+    build: ./identity-service
+    container_name: identity-service
+    restart: always
+    volumes:
+      - ./identity-service:/app
+    environment:
+      - DATABASE_URL=postgres://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth-db:5432/${AUTH_DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+      - REDIS_URL=redis://redis:6379/0 # Añadimos conexión a Redis
+    depends_on:
+      - auth-db
+      - redis
+    command: python manage.py runserver 0.0.0.0:8000 # mantener el contenedor activo
+
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "80:80"
+    depends_on:
+      - identity-service
+      - frontend-spa
+    restart: always
+
+  frontend-spa:
+    build: ./frontend-spa
+    container_name: frontend-spa
+    volumes:
+      - ./frontend-spa:/app
+      - /app/node_modules # Evita que los nodos locales sobrescriban los del contenedor [cite: 2026-03-05]
+    environment:
+      - VITE_API_URL=https://www.2026-a064.lat/api/auth
+    restart: always
+
+  # Nuevo servicio para procesar tareas en segundo plano
+  celery-worker:
+    build: ./identity-service
+    container_name: celery-worker
+    restart: always
+    volumes:
+      - ./identity-service:/app
+    environment:
+      - DATABASE_URL=postgres://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth-db:5432/${AUTH_DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - EMAIL_USER=${EMAIL_USER} # Para el envío de correos
+      - EMAIL_PASS=${EMAIL_PASS}
+    depends_on:
+      - auth-db
+      - redis
+    command: celery -A core worker --loglevel=info
+
+  # Bus de Eventos (Redis)
+  redis:
+    image: redis:7-alpine
+    container_name: redis-bus
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  auth-db-data:
+  core-db-data:
+  redis-data:

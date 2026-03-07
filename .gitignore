@@ -1,0 +1,27 @@
+# --- Seguridad y Entorno ---
+.env
+*.env
+auth-db-data/
+core-db-data/
+data/
+secrets.json
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+db.sqlite3
+media/
+staticfiles/
+
+# --- Frontend / React ---
+node_modules/
+frontend-spa/dist/
+frontend-spa/build/
+.eslintcache
+
+# --- Docker & Logs ---
+*.log
+docker-compose.override.yml
