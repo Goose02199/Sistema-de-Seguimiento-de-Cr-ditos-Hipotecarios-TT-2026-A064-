@@ -64,27 +64,6 @@ class RegistroClienteSerializer(serializers.ModelSerializer):
         send_activation_email.delay(user.email, activation_link)
         
         return user
-    
-# 1. Para pedir el correo (Request Reset)
-class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-
-# 2. Para el cambio final (Confirm Reset)
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    new_password = serializers.CharField(
-        write_only=True, 
-        required=True, 
-        validators=[validate_password]
-    )
-    re_new_password = serializers.CharField(write_only=True, required=True)
-
-    def validate(self, data):
-        if data['new_password'] != data['re_new_password']:
-            raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
-        return data
-    
-class EliminarCuentaSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True, required=True)
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     # Definimos explícitamente los campos que esperamos
@@ -95,3 +74,16 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Mapeamos 'email' a 'username' internamente para que SimpleJWT no se confunda
         attrs['username'] = attrs.get('email')
         return super().validate(attrs)
+    
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(
+        required=True, 
+        validators=[validate_password] # Sincronización con requisitos de Django [cite: 2026-03-05]
+    )
+    confirm_password = serializers.CharField(required=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Las nuevas contraseñas no coinciden."})
+        return data

@@ -44,7 +44,7 @@ const SignUp = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
       <div className="bg-white p-10 rounded-xl shadow-xl w-full max-w-lg border border-slate-100">
-        <h1 className="text-4xl font-bold text-center text-slate-900 mb-10 tracking-tight">Registro</h1>
+        <h1 className="text-4xl font-bold text-center text-slate-900 mb-10 tracking-tight">Crear Cuenta</h1>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">

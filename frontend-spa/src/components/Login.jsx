@@ -17,7 +17,7 @@ const Login = () => {
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
       
-      window.location.href = '/dashboard'; 
+      window.location.href = '/overview'; 
     } catch (error) {
       setLoginError('Credenciales incorrectas o cuenta no activada.');
     }
@@ -27,7 +27,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       {/* Contenedor principal con sombra */}
       <div className="bg-white p-10 rounded-xl shadow-xl w-full max-w-lg border border-slate-100">
-        <h1 className="text-4xl font-bold text-center text-slate-900 mb-10 tracking-tight">Login</h1>
+        <h1 className="text-4xl font-bold text-center text-slate-900 mb-10 tracking-tight">Iniciar Sesión</h1>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Campo Correo */}
