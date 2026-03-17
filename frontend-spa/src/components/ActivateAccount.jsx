@@ -1,21 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/api';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 const ActivateAccount = () => {
   const { uid, token } = useParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('loading'); // loading, success, error
+  const [status, setStatus] = useState('loading');
+  const hasActivated = useRef(false); // Evita el doble disparo en React Strict Mode [cite: 2026-03-05]
 
   useEffect(() => {
     const activate = async () => {
+      // Si ya intentamos activar en este ciclo de renderizado, no hacemos nada
+      if (hasActivated.current) return;
+      hasActivated.current = true;
+
       try {
-        // Llamada a la API real a través del Gateway [cite: 2026-03-03]
-        await axios.get(`${import.meta.env.VITE_API_URL}/activate/${uid}/${token}/`);
+        // Restauramos los parámetros necesarios para Django [cite: 2026-03-03]
+        await api.get(`/activate/${uid}/${token}/`);
         setStatus('success');
         setTimeout(() => navigate('/login'), 5000);
       } catch (err) {
+        // Si el error es porque ya se activó (400 o 403), podrías manejarlo distinto
         setStatus('error');
       }
     };
@@ -27,7 +33,7 @@ const ActivateAccount = () => {
       <div className="bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100">
         {status === 'loading' && (
           <>
-            <Loader2 className="mx-auto animate-spin text-blue-600 mb-4" size={50} />
+            <Loader2 className="mx-auto animate-spin text-[#1A4E5E]" size={50} />
             <h2 className="text-2xl font-bold text-slate-800">Verificando cuenta...</h2>
             <p className="text-slate-500 mt-2">Estamos validando tu enlace de seguridad.</p>
           </>

@@ -42,12 +42,14 @@ services:
     build: ./identity-service
     container_name: identity-service
     restart: always
+    env_file:
+      - ./identity-service/.env
     volumes:
       - ./identity-service:/app
     environment:
       - DATABASE_URL=postgres://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth-db:5432/${AUTH_DB_NAME}
       - SECRET_KEY=${SECRET_KEY}
-      - REDIS_URL=redis://redis:6379/0 # Añadimos conexión a Redis
+      - REDIS_URL=redis://redis:6379/0 # conexión a Redis
     depends_on:
       - auth-db
       - redis

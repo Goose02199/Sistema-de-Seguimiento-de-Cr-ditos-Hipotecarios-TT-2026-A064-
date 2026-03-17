@@ -35,33 +35,25 @@ class RegistroClienteSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Eliminamos confirm_password antes de crear el usuario
         validated_data.pop('confirm_password')
-        
-        # Concatenamos para el campo full_name que ya tenías o guardamos por separado
-        # Si tu modelo tiene full_name:
         full_name = f"{validated_data['first_name']} {validated_data['last_name']}"
         
         user = User.objects.create_user(
             email=validated_data['email'],
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
-            full_name=full_name, # Mantenemos compatibilidad con tu código previo
+            full_name=full_name,
             password=validated_data['password'],
-            role=User.Role.CLIENTE,
-            is_active=False # El usuario inicia inactivo (RF2)
+            #role=User.ROLE_CLIENTE, # Usando la constante que definimos
+            is_active=False 
         )
 
-        # --- Lógica de Activación vía Celery (RF2) ---
-        # Generamos los tokens de activación [cite: 2026-03-02]
+        # --- Lógica de Activación Actualizada ---
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         
-        # Construimos el link (puedes ajustar el dominio a tu variable de Cloudflare)
-        activation_link = f"https://www.2026-a064.lat/activate/{uid}/{token}/"
-        
-        # Disparamos la tarea asíncrona [cite: 2026-03-02]
-        send_activation_email.delay(user.email, activation_link)
+        # Ahora enviamos los 3 argumentos que espera la nueva tarea [cite: 2026-03-05]
+        send_activation_email.delay(user.email, uid, token)
         
         return user
 
@@ -87,3 +79,6 @@ class PasswordChangeSerializer(serializers.Serializer):
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError({"confirm_password": "Las nuevas contraseñas no coinciden."})
         return data
+
+class ResendActivationSerializer(serializers.Serializer):
+    email = serializers.EmailField()

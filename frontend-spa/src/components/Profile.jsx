@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import axios from 'axios';
+import api from '../api/api';
 import { User, Mail, Shield, Calendar, Lock, Loader2, Check, Circle, AlertCircle } from 'lucide-react';
 
 const Profile = () => {
@@ -23,10 +23,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/me/`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get(`/me/`);
         setUserData(response.data);
       } catch (error) {
         window.location.href = '/login';
@@ -40,10 +37,7 @@ const Profile = () => {
   const onPasswordChange = async (data) => {
     setMsg({ type: '', text: '' });
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post(`${import.meta.env.VITE_API_URL}/change-password/`, data, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post(`/change-password/`, data);
       setMsg({ type: 'success', text: 'Contraseña actualizada correctamente.' });
       reset(); // Limpia el formulario
     } catch (error) {

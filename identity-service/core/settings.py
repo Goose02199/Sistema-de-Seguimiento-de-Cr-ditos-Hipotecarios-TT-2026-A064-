@@ -25,6 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-i85_phqssi(2hr62cqvk7sjh$47^b%g0d3ull18_b3rw45^c$%'
 
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -58,6 +59,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
     # Mis Apps
+    'rest_framework_simplejwt.token_blacklist',
     'users',
 ]
 
@@ -133,7 +135,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
     'ALGORITHM': 'HS256',
@@ -165,6 +167,12 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
+
+# Google reCAPTCHA Keys 
+RECAPTCHA_SECRET_KEY = os.environ.get('RECAPTCHA_SECRET_KEY')
+
+# URL del Frontend para enlaces de activación (importante para la tarea de Celery)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://www.2026-a064.lat')
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/

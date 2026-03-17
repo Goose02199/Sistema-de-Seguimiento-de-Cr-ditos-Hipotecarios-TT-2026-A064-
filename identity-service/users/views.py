@@ -9,11 +9,23 @@ from .models import User
 from .serializers import (
     RegistroClienteSerializer, 
     MyTokenObtainPairSerializer,
-    PasswordChangeSerializer
+    PasswordChangeSerializer,
+    ResendActivationSerializer
 )
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from rest_framework_simplejwt.views import TokenObtainPairView
+from .tasks import send_activation_email, send_duplicate_registration_notification
+from django.contrib.auth import get_user_model
+from .utils import verify_recaptcha
+from django.core.cache import cache # Django usa Redis a través de esto
+import logging
+
+User = get_user_model()
+
+# Umbral de intentos antes de pedir captcha
+logger = logging.getLogger(__name__)
+MAX_ATTEMPTS = 3
 
 # Vista de Activación (RF2)
 @extend_schema(auth=[], description="Confirma el token enviado por correo para activar la cuenta.")
@@ -47,11 +59,45 @@ class RegistroClienteView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+
+        # 1. Extraemos el token que viene del "Spread Operator" del frontend [cite: 2026-03-05]
+        captcha_token = request.data.get('captcha_token')
+        
+        # 2. Validación de reCAPTCHA (Capa de Integridad)
+        if not verify_recaptcha(captcha_token):
+            return Response(
+                {"error": "La verificación de seguridad falló. Por favor, intenta de nuevo."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = request.data.get('email', '').lower()
+        
+        # 1. Verificamos si el usuario ya existe (Activo o Inactivo) [cite: 2026-03-02]
+        user_exists = User.objects.filter(email=email).first()
+        
+        if user_exists:
+            if user_exists.is_active:
+                # Caso A: Ya es usuario activo -> Notificación de seguridad
+                send_duplicate_registration_notification.delay(email)
+            else:
+                # Caso B: Existe pero no está activo -> Reenviamos enlace de activación [cite: 2026-03-05]
+                from django.utils.http import urlsafe_base64_encode
+                from django.utils.encoding import force_bytes
+                from django.contrib.auth.tokens import default_token_generator
+                
+                uid = urlsafe_base64_encode(force_bytes(user_exists.pk))
+                token = default_token_generator.make_token(user_exists)
+                send_activation_email.delay(email, uid, token)
+
+            # Respuesta idéntica a un registro nuevo para evitar "Email Enumeration" [cite: 2026-03-02]
+            return Response({
+                "message": "Usuario registrado exitosamente. Por favor, revise su correo electrónico para activar su cuenta."
+            }, status=status.HTTP_201_CREATED)
+
+        # 2. Si no existe, procedemos con el registro normal
         serializer = RegistroClienteSerializer(data=request.data)
         if serializer.is_valid():
-            # El serializer.save() ahora crea al usuario e invoca a Celery automáticamente [cite: 2026-03-02]
-            serializer.save()
-            
+            serializer.save() # El serializer ya dispara send_activation_email [cite: 2026-03-05]
             return Response({
                 "message": "Usuario registrado exitosamente. Por favor, revise su correo electrónico para activar su cuenta."
             }, status=status.HTTP_201_CREATED)
@@ -82,6 +128,64 @@ class UserProfileView(APIView):
     
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email', '').lower()
+        captcha_token = request.data.get('captcha_token')
+        
+        # 1. Consultar intentos fallidos en Redis
+        attempts = cache.get(f"login_attempts:{email}", 0)
+        
+        # 2. Bloqueo preventivo: Si superó el umbral, exigir captcha [cite: 2026-03-16]
+        if attempts >= MAX_ATTEMPTS:
+            if not captcha_token or not verify_recaptcha(captcha_token):
+                return Response({
+                    "error": "Demasiados intentos. Por favor, resuelve el captcha.",
+                    "show_captcha": True
+                }, status=status.HTTP_403_FORBIDDEN)
+
+        # 3. Llamar a la lógica original de SimpleJWT
+        try:
+            response = super().post(request, *args, **kwargs)
+            
+            # ÉXITO: Si llegamos aquí, las credenciales fueron correctas [cite: 2026-03-02]
+            cache.delete(f"login_attempts:{email}")
+            return response
+
+        except Exception as e:
+            # FALLO: SimpleJWT lanza excepciones si las credenciales fallan
+            new_attempts = attempts + 1
+            cache.set(f"login_attempts:{email}", new_attempts, timeout=600) # Expira en 10 min
+            
+            # Personalizamos la respuesta de error para el frontend adaptativo
+            return Response({
+                "error": "Credenciales incorrectas o cuenta no activada.",
+                "show_captcha": new_attempts >= MAX_ATTEMPTS
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+class ResendActivationView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        serializer = ResendActivationSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            try:
+                user = User.objects.get(email=email)
+                if not user.is_active:
+                    # Generamos nuevos tokens [cite: 2026-03-03]
+                    uid = urlsafe_base64_encode(force_bytes(user.pk))
+                    token = default_token_generator.make_token(user)
+                    
+                    # Disparamos Celery [cite: 2026-03-05]
+                    send_activation_email.delay(user.email, uid, token)
+            except User.DoesNotExist:
+                pass # No revelamos que el usuario no existe [cite: 2026-03-02]
+
+            return Response(
+                {"message": "Si la cuenta existe y no está activa, se ha enviado un nuevo enlace."},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class PasswordChangeView(APIView):
     # Solo usuarios con JWT válido pueden acceder (Confidencialidad) [cite: 2026-03-02]

@@ -4,7 +4,8 @@ import {
   Menu, Search, Bell, User, LogOut, Home, 
   Calculator, Calendar, HelpCircle, ChevronLeft 
 } from 'lucide-react';
-import axios from 'axios';
+
+import api from '../api/api';
 
 const AppLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -16,22 +17,38 @@ const AppLayout = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/me/`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get('/me/');
         setUser(response.data);
       } catch (error) {
-        navigate('/login');
+        if (error.response?.status === 401) {
+          navigate('/login');
+        }
       }
     };
     fetchProfile();
   }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      // 1. Obtenemos el token de refresco antes de borrar nada
+      const refreshToken = localStorage.getItem('refresh_token');
+
+      // 2. Intentamos invalidarlo en el backend (Lista Negra) [cite: 2026-03-02]
+      if (refreshToken) {
+        // Tu instancia 'api' ya debería llevar el Access Token en los headers
+        await api.post('/logout/', { refresh: refreshToken });
+      }
+    } catch (error) {
+      // Si falla (token ya expirado o error de red), lo registramos pero seguimos
+      console.warn("No se pudo invalidar el token en el servidor:", error.response?.data || error.message);
+    } finally {
+      // 3. LIMPIEZA TOTAL: Esto se ejecuta SIEMPRE [cite: 2026-03-05]
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      
+      // 4. Navegación limpia al login
+      navigate('/login', { replace: true });
+    }
   };
 
   if (!user) return null;

@@ -9,9 +9,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
-    host: true, // Permite conexiones externas al contenedor [cite: 2026-03-05]
+    host: true, // Permite conexiones externas al contenedor
     port: 5173,
-    // Autorizamos tu dominio de Cloudflare para evitar el bloqueo [cite: 2026-03-03]
+    // Autorizamos el dominio de Cloudflare para evitar bloqueos
     allowedHosts: [
       'www.2026-a064.lat',
       'localhost'
