@@ -216,31 +216,41 @@ class PasswordChangeView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class PasswordResetRequestView(APIView):
+    authentication_classes = [] 
     permission_classes = [AllowAny]
 
     def post(self, request):
         email = request.data.get('email', '').lower()
         captcha_token = request.data.get('captcha_token')
 
-        # 1. Validar Captcha (Protección contra Spam/DoS) [cite: 2026-03-16]
+        # 1. Validación de reCAPTCHA (Capa 1 de seguridad)
         if not verify_recaptcha(captcha_token):
             return Response({"error": "Validación de seguridad fallida."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 2. Buscar usuario
-        user = User.objects.filter(email=email).first()
+        # 2. Control de Frecuencia (Rate Limiting con Redis) [cite: 2026-03-16]
+        cooldown_key = f"password_reset_cooldown:{email}"
+        if cache.get(cooldown_key):
+            return Response({
+                "error": "Por favor, espera un minuto antes de solicitar otro enlace."
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
-        # 3. Si existe y está activo, disparamos Celery
+        # 3. Lógica de negocio
+        user = User.objects.filter(email=email).first()
         if user and user.is_active:
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             send_password_reset_email.delay(email, uid, token)
+            
+            # 4. Establecer el candado en Redis por 60 segundos
+            cache.set(cooldown_key, True, timeout=60)
 
-        # IMPORTANTE: Siempre devolvemos 200 aunque el correo no exista (Privacidad/LFPDPPP)
+        # Mantenemos la respuesta genérica por privacidad (LFPDPPP)
         return Response({
-            "message": "Si el correo está registrado, recibirás un enlace de recuperación en breve."
+            "message": "Si el correo está registrado, recibirás un enlace en breve."
         }, status=status.HTTP_200_OK)
     
 class PasswordResetConfirmView(APIView):
+    authentication_classes = [] # <-- Vital para que funcione desde el link del correo
     permission_classes = [AllowAny]
 
     def post(self, request):

@@ -9,17 +9,20 @@ const PasswordResetConfirm = () => {
   const [passwords, setPasswords] = useState({ new_password: '', confirm_password: '' });
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+  const currentPassword = passwords.new_password;
 
   // Reutilizamos tus checks de seguridad [cite: 2026-03-16]
   const checks = {
     length: passwords.new_password.length >= 8,
     hasNumber: /\d/.test(passwords.new_password),
-    isMatch: passwords.new_password === passwords.confirm_password && passwords.new_password !== ''
+    isMatch: passwords.new_password === passwords.confirm_password && passwords.new_password !== '',
+    isNotSimple: currentPassword.length > 0 && 
+                 !['12345678', 'password', 'qwertyui', 'admin123', 'escom2026'].includes(currentPassword.toLowerCase())
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!checks.length || !checks.hasNumber || !checks.isMatch) return;
+    if (!checks.length || !checks.hasNumber || !checks.isMatch || !checks.isNotSimple) return;
 
     setLoading(true);
     try {
@@ -54,8 +57,9 @@ const PasswordResetConfirm = () => {
           />
 
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-            <CheckItem met={checks.length} text="8+ caracteres" />
-            <CheckItem met={checks.hasNumber} text="Al menos un número" />
+            <CheckItem met={checks.length} text="Mínimo 8 caracteres" />
+            <CheckItem met={checks.hasNumber} text="Incluir al menos un número" />
+            <CheckItem met={checks.isNotSimple} text="No usar palabras comúnes" />
             <CheckItem met={checks.isMatch} text="Las contraseñas coinciden" />
           </div>
 
