@@ -40,3 +40,21 @@ def send_duplicate_registration_notification(email):
     recipient_list = [email]
     
     send_mail(subject, message, email_from, recipient_list)
+
+@shared_task
+def send_password_reset_email(email, uid, token):
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'https://www.2026-a064.lat')
+    # Ruta específica para resetear contraseña
+    reset_link = f"{frontend_url}/password-reset-confirm/{uid}/{token}/"
+    
+    subject = 'Recupera tu contraseña - Sistema Hipotecario'
+    message = (
+        f"Hola,\n\n"
+        f"Recibimos una solicitud para restablecer tu contraseña. "
+        f"Haz clic en el siguiente enlace para crear una nueva: {reset_link}\n\n"
+        f"Este enlace expirará pronto por seguridad. Si no solicitaste esto, ignora este correo."
+    )
+    email_from = settings.EMAIL_HOST_USER
+    recipient_list = [email]
+    
+    send_mail(subject, message, email_from, recipient_list)

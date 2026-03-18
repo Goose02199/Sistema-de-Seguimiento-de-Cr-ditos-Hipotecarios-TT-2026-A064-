@@ -15,7 +15,7 @@ from .serializers import (
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .tasks import send_activation_email, send_duplicate_registration_notification
+from .tasks import send_activation_email, send_duplicate_registration_notification, send_password_reset_email
 from django.contrib.auth import get_user_model
 from .utils import verify_recaptcha
 from django.core.cache import cache # Django usa Redis a través de esto
@@ -214,3 +214,51 @@ class PasswordChangeView(APIView):
             )
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email', '').lower()
+        captcha_token = request.data.get('captcha_token')
+
+        # 1. Validar Captcha (Protección contra Spam/DoS) [cite: 2026-03-16]
+        if not verify_recaptcha(captcha_token):
+            return Response({"error": "Validación de seguridad fallida."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Buscar usuario
+        user = User.objects.filter(email=email).first()
+
+        # 3. Si existe y está activo, disparamos Celery
+        if user and user.is_active:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            send_password_reset_email.delay(email, uid, token)
+
+        # IMPORTANTE: Siempre devolvemos 200 aunque el correo no exista (Privacidad/LFPDPPP)
+        return Response({
+            "message": "Si el correo está registrado, recibirás un enlace de recuperación en breve."
+        }, status=status.HTTP_200_OK)
+    
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uidb64 = request.data.get('uid')
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+
+        try:
+            # Decodificamos el ID del usuario
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        # Validamos el token contra el usuario [cite: 2026-03-02]
+        if user is not None and default_token_generator.check_token(user, token):
+            user.set_password(new_password)
+            user.save()
+            return Response({"message": "Contraseña restablecida correctamente."}, status=status.HTTP_200_OK)
+        
+        return Response({"error": "El enlace es inválido o ha expirado."}, status=status.HTTP_400_BAD_REQUEST)

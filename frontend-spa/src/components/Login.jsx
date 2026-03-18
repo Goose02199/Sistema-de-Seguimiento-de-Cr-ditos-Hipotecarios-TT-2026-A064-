@@ -1,8 +1,9 @@
 import React, {useState, useRef} from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
+
 
 import api from '../api/api';
 
@@ -94,9 +95,12 @@ const Login = () => {
           </div>
 
           {/* Enlace de recuperación */}
-          <a href="/password-reset" className="block text-base text-slate-600 hover:text-slate-900 underline mt-3">
+          <Link 
+            to="/password-reset" 
+            className="block text-base text-slate-600 hover:text-slate-900 underline mt-3"
+          >
             ¿Olvidaste tu contraseña?
-          </a>
+          </Link>
           {showCaptcha && (
             <div className="flex justify-center my-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <ReCAPTCHA

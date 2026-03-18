@@ -6,6 +6,8 @@ import ActivateAccount from './components/ActivateAccount';
 import Profile from './components/Profile';
 import AppLayout from './components/AppLayout';
 import Overview from './components/Overview';
+import PasswordResetRequest from './components/PasswordResetRequest';
+import PasswordResetConfirm from './components/PasswordResetConfirm';
 
 // Componente para proteger la ruta [cite: 2026-03-02]
 const PrivateRoute = ({ children }) => {
@@ -21,7 +23,9 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/activate/:uid/:token" element={<ActivateAccount />} />
-        
+        <Route path="/password-reset" element={<PasswordResetRequest />} />
+        <Route path="/password-reset-confirm/:uid/:token" element={<PasswordResetConfirm />} /> 
+
         {/* Rutas Protegidas bajo el mismo Layout [cite: 2026-03-03] */}
         <Route 
           path="/" 
@@ -39,6 +43,7 @@ function App() {
           
           {/* Redirigir la raíz del layout a la Vista General */}
           <Route index element={<Navigate to="/inicio" replace />} />
+          
         </Route>
 
         {/* Fallback global */}
