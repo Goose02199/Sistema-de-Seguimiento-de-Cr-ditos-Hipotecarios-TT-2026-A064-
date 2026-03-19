@@ -1,4 +1,3 @@
-// src/components/Overview.jsx
 import React from 'react';
 
 const Overview = () => {

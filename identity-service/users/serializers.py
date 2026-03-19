@@ -44,7 +44,7 @@ class RegistroClienteSerializer(serializers.ModelSerializer):
             last_name=validated_data['last_name'],
             full_name=full_name,
             password=validated_data['password'],
-            #role=User.ROLE_CLIENTE, # Usando la constante que definimos
+            role=User.Role.CLIENTE, 
             is_active=False 
         )
 
@@ -66,6 +66,18 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Mapeamos 'email' a 'username' internamente para que SimpleJWT no se confunda
         attrs['username'] = attrs.get('email')
         return super().validate(attrs)
+    
+    @classmethod
+    def get_token(cls, user):
+        # Llamamos al método original para obtener el token base
+        token = super().get_token(user)
+
+        # INYECCIÓN DE DATOS (Payload del JWT) [cite: 2026-03-02]
+        # Usamos los campos que confirmamos en tu models.py
+        token['role'] = user.role
+        token['full_name'] = user.full_name
+        
+        return token
     
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)

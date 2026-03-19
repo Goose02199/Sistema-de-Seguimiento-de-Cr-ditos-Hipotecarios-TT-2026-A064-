@@ -2,31 +2,58 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, Search, Bell, User, LogOut, Home, 
-  Calculator, Calendar, HelpCircle, ChevronLeft 
+  Calculator, Calendar, HelpCircle, ChevronLeft,
+  Loader2 
 } from 'lucide-react';
 
 import api from '../api/api';
+import { getUserDataFromToken } from '../utils/authUtils';
 
 const AppLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [user, setUser] = useState(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const navigate = useNavigate();
+  const tokenData = getUserDataFromToken();
+  const userRole = tokenData?.role;
+  const [loading, setLoading] = useState(true);
 
-  // Recuperamos la información del perfil (Derechos ARCO/LFPDPPP)
+  const navigation = [
+    { to: "/inicio", icon: <Home size={20} />, label: "Inicio", roles: ['ADMINISTRADOR', 'BROKER', 'CLIENTE'] },
+    { to: "/simuladores", icon: <Calculator size={20} />, label: "Simuladores", roles: ['BROKER', 'CLIENTE'] },
+    { to: "/agenda", icon: <Calendar size={20} />, label: "Agenda", roles: ['BROKER', 'ADMINISTRADOR'] },
+    { to: "/perfil", icon: <User size={20} />, label: "Mi perfil", roles: ['ADMINISTRADOR', 'BROKER', 'CLIENTE'] },
+  ];
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const response = await api.get('/me/');
         setUser(response.data);
       } catch (error) {
+        // Si el interceptor falla (ej. refresh token también expiró) [cite: 2026-03-02]
         if (error.response?.status === 401) {
           navigate('/login');
         }
+      } finally {
+        setLoading(false); // 2. Siempre terminamos de cargar
       }
     };
     fetchProfile();
   }, [navigate]);
+
+  // 3. En lugar de return null, mostramos un spinner elegante [cite: 2026-03-05]
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-[#1A4E5E] mb-4" size={48} />
+        <p className="text-slate-600 font-medium animate-pulse">Sincronizando sesión...</p>
+      </div>
+    );
+  }
+
+  // Si después de cargar no hay user (por algún error raro), ahí sí protegemos
+  if (!user) return null;
 
   const handleLogout = async () => {
     try {
@@ -65,10 +92,19 @@ const AppLayout = () => {
         </div>
 
         <nav className="flex-1 mt-6 px-3 space-y-2">
-          <NavItem to="/inicio" icon={<Home size={20} />} label="Inicio" isCollapsed={isCollapsed} />
-          <NavItem to="/simuladores" icon={<Calculator size={20} />} label="Simuladores" isCollapsed={isCollapsed} />
-          <NavItem to="/agenda" icon={<Calendar size={20} />} label="Agenda" isCollapsed={isCollapsed} />
-          <NavItem to="/perfil" icon={<User size={20} />} label="Mi perfil" isCollapsed={isCollapsed} />
+          {/* 3. FILTRADO DINÁMICO: Solo mostramos lo que el rol permite [cite: 2026-03-02] */}
+          {navigation
+            .filter(item => item.roles.includes(userRole))
+            .map((item) => (
+              <NavItem 
+                key={item.to} 
+                to={item.to} 
+                icon={item.icon} 
+                label={item.label} 
+                isCollapsed={isCollapsed} 
+              />
+            ))
+          }
         </nav>
 
         <div className="p-4 border-t border-[#133A46]">
