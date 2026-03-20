@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_str, force_bytes
 from django.contrib.auth.tokens import default_token_generator
-from .models import User
+from .models import User, AuditLog
 from .serializers import (
     RegistroClienteSerializer, 
     MyTokenObtainPairSerializer,
@@ -20,6 +20,7 @@ from django.contrib.auth import get_user_model
 from .utils import verify_recaptcha
 from django.core.cache import cache # Django usa Redis a través de esto
 import logging
+from .utils import log_audit_event
 
 User = get_user_model()
 
@@ -114,7 +115,6 @@ class UserProfileView(APIView):
     )
     def get(self, request):
         user = request.user
-        # Retornamos los datos que definimos en el modelo personalizado
         return Response({
             "id": user.id,
             "email": user.email,
@@ -123,8 +123,34 @@ class UserProfileView(APIView):
             "last_name": user.last_name,
             "role": user.role,
             "is_active": user.is_active,
-            "date_joined": user.date_joined
+            "date_joined": user.date_joined,
+            # AGREGAR ESTOS CAMPOS [cite: 2026-03-02]
+            "phone": user.phone,
+            "marital_status": user.marital_status,
+            "curp_rfc": user.curp_rfc,
+            "address": user.address,
+            "postal_code": user.postal_code,
+            "state": user.state,
+            "municipality": user.municipality,
+            "housing_status": user.housing_status,
         }, status=status.HTTP_200_OK)
+    
+    def patch(self, request):
+        user = request.user
+        # Definimos qué campos SÍ puede tocar el usuario [cite: 2026-03-18]
+        allowed_fields = [
+            'phone', 'marital_status', 'address', 
+            'postal_code', 'state', 'municipality', 
+            'housing_status'
+        ]
+        
+        data = request.data
+        for field in allowed_fields:
+            if field in data:
+                setattr(user, field, data[field])
+        
+        user.save()
+        return Response({"message": "Perfil actualizado exitosamente."}, status=status.HTTP_200_OK)
     
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
@@ -147,12 +173,17 @@ class MyTokenObtainPairView(TokenObtainPairView):
         # 3. Llamar a la lógica original de SimpleJWT
         try:
             response = super().post(request, *args, **kwargs)
-            
+            user = User.objects.filter(email=email).first()
+            log_audit_event(request, AuditLog.ActionType.LOGIN_SUCCESS, user=user)
             # ÉXITO: Si llegamos aquí, las credenciales fueron correctas [cite: 2026-03-02]
             cache.delete(f"login_attempts:{email}")
             return response
 
         except Exception as e:
+            # FALLO: Registramos quién intentó entrar
+            user = User.objects.filter(email=email).first()
+            log_audit_event(request, AuditLog.ActionType.LOGIN_FAILED, user=user)
+
             # FALLO: SimpleJWT lanza excepciones si las credenciales fallan
             new_attempts = attempts + 1
             cache.set(f"login_attempts:{email}", new_attempts, timeout=600) # Expira en 10 min

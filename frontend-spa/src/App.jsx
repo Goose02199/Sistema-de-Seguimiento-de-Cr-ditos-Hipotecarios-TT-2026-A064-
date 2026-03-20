@@ -40,17 +40,17 @@ function App() {
           <Route path="inicio" element={<Overview />} />
           
           {/* Tu anterior Dashboard ahora es la sección de Perfil */}
-         {/* <Route path="perfil" element={<Profile />} /> */}
+          <Route path="perfil" element={<Profile />} />
           
           {/* RUTAS PROTEGIDAS POR ROL [cite: 2026-03-02] */}
-          <Route 
+          {/* <Route 
             path="perfil" 
             element={
               <RoleGuard allowedRoles={['BROKER', 'ADMINISTRADOR']}>
                 <Profile /> 
               </RoleGuard>
             } 
-          />
+          /> */}
 
           {/* Redirigir la raíz del layout a la Vista General */}
           <Route index element={<Navigate to="/inicio" replace />} />

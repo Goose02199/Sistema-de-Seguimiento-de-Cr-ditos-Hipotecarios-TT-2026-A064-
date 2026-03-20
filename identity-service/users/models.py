@@ -56,3 +56,25 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.email} ({self.role})"
+    
+class AuditLog(models.Model):
+    # Tipos de eventos para facilitar el filtrado posterior
+    class ActionType(models.TextChoices):
+        LOGIN_SUCCESS = 'LOGIN_SUCCESS', 'Inicio de Sesión Exitoso'
+        LOGIN_FAILED = 'LOGIN_FAILED', 'Intento de Inicio Fallido'
+        PASSWORD_CHANGE = 'PASSWORD_CHANGE', 'Cambio de Contraseña'
+        PROFILE_UPDATE = 'PROFILE_UPDATE', 'Actualización de Perfil'
+        ACCOUNT_ACTIVATION = 'ACCOUNT_ACTIVATION', 'Activación de Cuenta'
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    action = models.CharField(max_length=50, choices=ActionType.choices)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True) # Navegador/Dispositivo
+    details = models.JSONField(default=dict, blank=True) # Para guardar qué cambió (ej: {"field": "phone"})
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.user} - {self.action} - {self.timestamp}"

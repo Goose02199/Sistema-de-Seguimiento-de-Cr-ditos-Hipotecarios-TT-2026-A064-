@@ -3,8 +3,6 @@ import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
-
-
 import api from '../api/api';
 
 const Login = () => {
