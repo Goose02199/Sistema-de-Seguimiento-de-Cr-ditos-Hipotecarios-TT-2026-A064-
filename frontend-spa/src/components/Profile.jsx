@@ -14,7 +14,7 @@ const Profile = () => {
   const { 
     register: registerProfile, 
     handleSubmit: handleSubmitProfile, 
-    reset: resetProfile
+    reset: resetProfile  
   } = useForm();
 
   // 2. Formulario para Seguridad (Password)
@@ -24,6 +24,12 @@ const Profile = () => {
     watch: watchPass, 
     reset: resetPass, 
     formState: { errors: errorsPass, isSubmitting: isSubmittingPass } 
+  } = useForm();
+
+  const { 
+    register: registerDelete, 
+    handleSubmit: handleSubmitDelete, 
+    formState: { isSubmitting: isDeletingAccount } 
   } = useForm();
 
   const newPasswordValue = watchPass("new_password", "");
@@ -75,7 +81,30 @@ const Profile = () => {
       setUserData({ ...userData, ...data });
       setIsEditing(false);
     } catch (error) {
-      setProfileMsg({ type: 'error', text: 'No se pudieron guardar los cambios.' });
+      // Extraemos el primer error que encontremos en el objeto de respuesta [cite: 2026-03-23]
+      const serverErrors = error.response?.data;
+      let errorText = 'Error al actualizar.';
+
+      if (serverErrors) {
+        // Si el error es {"phone": ["..."]}, tomamos ese mensaje
+        const firstKey = Object.keys(serverErrors)[0];
+        errorText = `${firstKey}: ${serverErrors[firstKey][0]}`;
+      }
+      
+      setProfileMsg({ type: 'error', text: errorText });
+    }
+  };
+
+  const onDeleteAccount = async (data) => {
+    if (!window.confirm("¿Estás seguro? Esta acción desactivará tu acceso permanentemente.")) return;
+    
+    try {
+      await api.post('/deactivate-account/', data);
+      // Limpieza de tokens y salida
+      localStorage.clear();
+      window.location.href = '/login';
+    } catch (error) {
+      setPassMsg({ type: 'error', text: error.response?.data?.error || 'Error al desactivar cuenta.' });
     }
   };
 
@@ -140,11 +169,39 @@ const Profile = () => {
             defaultValue={userData.curp_rfc} 
           />
           <EditableField 
+            label="Dirección" 
+            name="address" 
+            register={registerProfile} 
+            isEditing={isEditing} 
+            defaultValue={userData.address} 
+          />
+          <EditableField 
             label="Código Postal" 
             name="postal_code" 
             register={registerProfile} 
             isEditing={isEditing} 
             defaultValue={userData.postal_code} 
+          />
+          <EditableField 
+            label="Estado" 
+            name="state" 
+            register={registerProfile} 
+            isEditing={isEditing} 
+            defaultValue={userData.state} 
+          />
+          <EditableField 
+            label="Municipio" 
+            name="municipality" 
+            register={registerProfile} 
+            isEditing={isEditing} 
+            defaultValue={userData.municipality} 
+          />
+          <EditableField 
+            label="Housing_status" 
+            name="housing_status" 
+            register={registerProfile} 
+            isEditing={isEditing} 
+            defaultValue={userData.housing_status} 
           />
           
           {isEditing && (
@@ -216,9 +273,9 @@ const Profile = () => {
             </button>
 
             {passMsg.text && (
-              <div className={`p-4 rounded-xl flex items-center gap-3 font-medium ${PassMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                {PassMsg.type === 'success' ? <Check size={20}/> : <AlertCircle size={20}/>}
-                {PassMsg.text}
+              <div className={`p-4 rounded-xl flex items-center gap-3 font-medium ${passMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                {passMsg.type === 'success' ? <Check size={20}/> : <AlertCircle size={20}/>}
+                {passMsg.text}
               </div>
             )}
           </div>
@@ -231,6 +288,38 @@ const Profile = () => {
               <CheckItem met={checks.isNotSimple} text="No usar datos personales o comunes" />
             </div>
           </div>
+        </form>
+      </section>
+
+      {/* SECCIÓN 4: Zona de Peligro (RF_EXT_1) */}
+      <section className="bg-red-50 rounded-2xl shadow-sm border border-red-100 p-8 mt-12">
+        <div className="flex items-center gap-3 mb-6">
+          <AlertCircle className="text-red-600" size={24}/>
+          <h2 className="text-2xl font-bold text-red-800">Zona de Peligro</h2>
+        </div>
+        
+        <p className="text-sm text-red-600 mb-6 font-medium">
+          Al desactivar tu cuenta, perderás acceso a todos tus simuladores y expedientes. 
+          Esta acción es definitiva para tu perfil de usuario.
+        </p>
+
+        <form onSubmit={handleSubmitDelete(onDeleteAccount)} className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-red-800 uppercase mb-2">Confirmar con Contraseña</label>
+            <input 
+              {...registerDelete("password", { required: true })}
+              type="password" 
+              placeholder="Ingresa tu contraseña actual"
+              className="w-full px-4 py-3 border border-red-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition bg-white"
+            />
+          </div>
+          <button 
+            type="submit"
+            disabled={isDeletingAccount}
+            className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition-all disabled:opacity-50"
+          >
+            {isDeletingAccount ? 'Procesando...' : 'Desactivar Cuenta'}
+          </button>
         </form>
       </section>
     </div>

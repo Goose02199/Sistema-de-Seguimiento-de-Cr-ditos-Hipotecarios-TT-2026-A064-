@@ -94,3 +94,24 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 class ResendActivationSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
+# users/serializers.py
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        # Definimos los campos que React podrá LEER y ESCRIBIR
+        fields = [
+            'id', 'email', 'full_name', 'first_name', 'last_name', 
+            'role', 'is_active', 'date_joined', 'phone', 
+            'marital_status', 'curp_rfc', 'address', 
+            'postal_code', 'state', 'municipality', 'housing_status'
+        ]
+        # Campos que el usuario NO puede editar (Solo lectura) [cite: 2026-03-22]
+        read_only_fields = ['id', 'email', 'role', 'is_active', 'date_joined']
+
+    def validate_phone(self, value):
+        if value and not value.isdigit():
+            raise serializers.ValidationError("El teléfono solo debe contener números.")
+        if value and len(value) != 10:
+            raise serializers.ValidationError("El teléfono debe tener exactamente 10 dígitos.")
+        return value

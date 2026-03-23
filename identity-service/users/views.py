@@ -10,7 +10,8 @@ from .serializers import (
     RegistroClienteSerializer, 
     MyTokenObtainPairSerializer,
     PasswordChangeSerializer,
-    ResendActivationSerializer
+    ResendActivationSerializer,
+    UserProfileSerializer,
 )
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
@@ -21,6 +22,7 @@ from .utils import verify_recaptcha
 from django.core.cache import cache # Django usa Redis a través de esto
 import logging
 from .utils import log_audit_event
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -45,6 +47,14 @@ class ActivacionCuentaView(APIView):
             # LFPDPPP: Al activar, el usuario confirma su voluntad de uso del sistema
             user.is_active = True
             user.save()
+
+            log_audit_event(
+                request, 
+                AuditLog.ActionType.ACCOUNT_ACTIVATION, 
+                user=user,
+                details={"method": "email_token"}
+            )
+
             return Response({"message": "Cuenta activada exitosamente. Ya puede iniciar sesión."}, status=status.HTTP_200_OK)
         else:
             return Response({"error": "El enlace de activación es inválido o ha expirado."}, status=status.HTTP_400_BAD_REQUEST)
@@ -114,42 +124,20 @@ class UserProfileView(APIView):
         description="Obtiene los datos del perfil del usuario autenticado (Derechos de Acceso LFPDPPP)."
     )
     def get(self, request):
-        user = request.user
-        return Response({
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "role": user.role,
-            "is_active": user.is_active,
-            "date_joined": user.date_joined,
-            # AGREGAR ESTOS CAMPOS [cite: 2026-03-02]
-            "phone": user.phone,
-            "marital_status": user.marital_status,
-            "curp_rfc": user.curp_rfc,
-            "address": user.address,
-            "postal_code": user.postal_code,
-            "state": user.state,
-            "municipality": user.municipality,
-            "housing_status": user.housing_status,
-        }, status=status.HTTP_200_OK)
+            serializer = UserProfileSerializer(request.user)
+            return Response(serializer.data)
     
+    @extend_schema(request=UserProfileSerializer, responses={200: UserProfileSerializer})
     def patch(self, request):
-        user = request.user
-        # Definimos qué campos SÍ puede tocar el usuario [cite: 2026-03-18]
-        allowed_fields = [
-            'phone', 'marital_status', 'address', 
-            'postal_code', 'state', 'municipality', 
-            'housing_status'
-        ]
+        # Abstracción de escritura y validación
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
         
-        data = request.data
-        for field in allowed_fields:
-            if field in data:
-                setattr(user, field, data[field])
+        if serializer.is_valid(raise_exception=True): # El guardia de seguridad actúa aquí
+            serializer.save()
+            log_audit_event(request, AuditLog.ActionType.PROFILE_UPDATE)
+            return Response(serializer.data)
+
         
-        user.save()
         return Response({"message": "Perfil actualizado exitosamente."}, status=status.HTTP_200_OK)
     
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -238,6 +226,7 @@ class PasswordChangeView(APIView):
             # Cambiamos y guardamos (set_password se encarga del hashing) [cite: 2026-03-02]
             user.set_password(serializer.validated_data.get('new_password'))
             user.save()
+            log_audit_event(request, AuditLog.ActionType.PASSWORD_CHANGE, user=request.user)
             
             return Response(
                 {"message": "Contraseña actualizada exitosamente."}, 
@@ -303,3 +292,37 @@ class PasswordResetConfirmView(APIView):
             return Response({"message": "Contraseña restablecida correctamente."}, status=status.HTTP_200_OK)
         
         return Response({"error": "El enlace es inválido o ha expirado."}, status=status.HTTP_400_BAD_REQUEST)
+    
+class DeactivateAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        password = request.data.get('password')
+
+        if not password or not user.check_password(password):
+            return Response({
+                "error": "La contraseña proporcionada es incorrecta."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Guardamos el email original para el log
+        original_email = user.email
+        now = timezone.now()
+
+        # 2. Renombramos el email para liberar el original
+        # Esto permite que se cree una nueva cuenta con el mismo correo
+        user.email = f"{original_email}_deleted_{int(now.timestamp())}"
+        user.is_active = False
+        user.deleted_at = now
+        user.status = 'Eliminado'
+        user.save()
+
+        # 3. Auditoría completa
+        log_audit_event(
+            request, 
+            AuditLog.ActionType.ACCOUNT_SUSPENSION, 
+            user=user,
+            details={"original_email": original_email}
+        )
+
+        return Response({"message": "Cuenta desactivada correctamente."}, status=status.HTTP_200_OK)

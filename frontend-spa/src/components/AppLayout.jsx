@@ -21,7 +21,7 @@ const AppLayout = () => {
   const navigation = [
     { to: "/inicio", icon: <Home size={20} />, label: "Inicio", roles: ['ADMINISTRADOR', 'BROKER', 'CLIENTE'] },
     { to: "/simuladores", icon: <Calculator size={20} />, label: "Simuladores", roles: ['BROKER', 'CLIENTE'] },
-    { to: "/agenda", icon: <Calendar size={20} />, label: "Agenda", roles: ['BROKER', 'ADMINISTRADOR'] },
+    { to: "/agenda", icon: <Calendar size={20} />, label: "Agenda", roles: ['BROKER', 'CLIENTE'] },
     { to: "/perfil", icon: <User size={20} />, label: "Mi perfil", roles: ['ADMINISTRADOR', 'BROKER', 'CLIENTE'] },
   ];
 

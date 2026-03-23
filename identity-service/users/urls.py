@@ -9,6 +9,7 @@ from .views import (
     ResendActivationView,
     PasswordResetRequestView, 
     PasswordResetConfirmView,
+    DeactivateAccountView,
 )
 
 urlpatterns = [
@@ -25,4 +26,5 @@ urlpatterns = [
     path('logout/', TokenBlacklistView.as_view(), name='token_blacklist'),
     path('password-reset-request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('deactivate-account/', DeactivateAccountView.as_view(), name='deactivate-account'),
 ]

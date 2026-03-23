@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -34,6 +35,7 @@ class User(AbstractUser):
     phone = models.CharField('Teléfono', max_length=20, blank=True, null=True) 
     status = models.CharField('Estatus', max_length=50, default='Activo') 
     registration_date = models.DateField(auto_now_add=True) 
+    deleted_at = models.DateTimeField('Fecha de eliminación', null=True, blank=True)
 
     # Campos específicos para el Solicitante/Cliente (Tabla 27)
     birth_date = models.DateField('Fecha de nacimiento', null=True, blank=True) 
@@ -65,6 +67,7 @@ class AuditLog(models.Model):
         PASSWORD_CHANGE = 'PASSWORD_CHANGE', 'Cambio de Contraseña'
         PROFILE_UPDATE = 'PROFILE_UPDATE', 'Actualización de Perfil'
         ACCOUNT_ACTIVATION = 'ACCOUNT_ACTIVATION', 'Activación de Cuenta'
+        ACCOUNT_SUSPENSION = 'ACCOUNT_SUSPENSION', 'Suspensión de Cuenta'
 
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
     action = models.CharField(max_length=50, choices=ActionType.choices)
