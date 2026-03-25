@@ -36,6 +36,8 @@ services:
       - core-db-data:/var/lib/postgresql/data
     ports:
       - "5434:5432"
+    networks: 
+      - mortgage-network
 
 # --- MICROSERVICIOS ---
   identity-service:
@@ -94,6 +96,15 @@ services:
       - redis
     command: celery -A core worker --loglevel=info
 
+  intelligence-service:
+      build: ./intelligence-service
+      container_name: intelligence-service
+      ports:
+        - "8002:8002"
+      networks:
+        - mortgage-network
+      restart: always
+
   # Bus de Eventos (Redis)
   redis:
     image: redis:7-alpine
@@ -103,6 +114,29 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+
+  mortgage-core:
+    build: ./mortgage-core
+    container_name: mortgage-core
+    volumes:
+      - ./mortgage-core:/app
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env  
+    environment:
+      - DATABASE_URL=postgres://${CORE_DB_USER}:${CORE_DB_PASSWORD}@core-db:5432/${CORE_DB_NAME}
+      - INTELLIGENCE_SERVICE_URL=http://intelligence-service:8002
+    networks:
+      - mortgage-network
+    depends_on:
+      - core-db
+      - intelligence-service
+    command: python manage.py runserver 0.0.0.0:8001
+
+networks:
+  mortgage-network:
+    driver: bridge
 
 volumes:
   auth-db-data:
