@@ -103,6 +103,9 @@ services:
         - "8002:8002"
       networks:
         - mortgage-network
+      volumes:
+      - ./intelligence-service/app:/app/app
+      - ./intelligence-service/models:/app/models
       restart: always
 
   # Bus de Eventos (Redis)

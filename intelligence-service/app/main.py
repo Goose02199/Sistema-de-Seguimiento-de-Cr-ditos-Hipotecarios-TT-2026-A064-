@@ -1,12 +1,21 @@
 from fastapi import FastAPI, HTTPException
-from .core.predictor import RiskPredictor
 from pydantic import BaseModel
+from typing import List, Dict
+
+# Motores para modelos
+from .core.predictor import RiskPredictor
+from .core.recommender import BankRecommender
+
+import os
 
 app = FastAPI(title="Intelligence Service - Risk Analysis - Comprehensive Engine")
-predictor = RiskPredictor()
+
+# Inicialización de Predictores
+risk_predictor = RiskPredictor()
+bank_recommender = BankRecommender()
 
 class ApplicantData(BaseModel):
-    # Variables según tu lista de 22
+    """Esquema para el Modelo de Riesgo (XGBoost)"""
     loan_amnt_MXN2025: float
     annual_inc_MXN2025: float
     installment_MXN2025: float
@@ -25,21 +34,46 @@ class ApplicantData(BaseModel):
     home_ownership: str  # El predictor se encargará de expandir esto a las 6 columnas
     earliest_cr_line: int
 
+class RecommendationRequest(BaseModel):
+    """Esquema para el Buscador Top 5 (ExtraTrees)"""
+    montoCredito: float
+    plazoAnios: int
+    ingresoMensual: float
+    valorVivienda: float
+
+# --- ENDPOINTS ---
+
 @app.get("/health")
 async def health_check():
-    return {"status": "ready", "model": "XGBoost_Riesgo_Final"}
+    return {"status": "ready", "models": ["XGBoost_Riesgo", "ExtraTrees_Recommendation"]}
 
-# --- ENDPOINT 1: MODELO DE ML (XGBoost) ---
+# ENDPOINT 1: Riesgo (XGBoost) 
 @app.post("/analyze-risk")
 async def analyze_risk(data: ApplicantData):
     """Inferencia de Machine Learning"""
     try:
-        result = predictor.process_and_predict(data.dict())
+        result = risk_predictor.process_and_predict(data.dict())
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"ML Error: {str(e)}")
+        print("--- FATAL ERROR EN ML ---")
+        traceback.print_exc() 
+        raise HTTPException(status_code=500, detail=str(e))
 
-# --- ENDPOINT 2: MOTOR FINANCIERO (Simulación) ---
+# ENDPOINT 2: Recomendación Top 5 (ExtraTrees)
+
+@app.post("/recommend-banks")
+async def recommend_banks(data: RecommendationRequest):
+    """
+    Recibe el perfil del cliente y devuelve las 5 mejores opciones 
+    calibradas y segmentadas.
+    """
+    try:
+        results = bank_recommender.process_and_recommend(data.dict())
+        return {"status": "success", "recommendations": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ML Recommendation Error: {str(e)}")
+
+# --- ENDPOINT 3: MOTOR FINANCIERO (Simulación) ---
 # @app.post("/simulate")
 # async def run_simulation(payload: dict):
 #     """

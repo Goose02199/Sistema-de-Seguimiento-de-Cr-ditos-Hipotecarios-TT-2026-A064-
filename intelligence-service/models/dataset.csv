@@ -1,0 +1,185 @@
+origen,institucion,producto_base,programa_adicional,valorVivienda,montoCredito,plazoAnios,ingresoMensual,Tasa_Nominal_Pct,comisionAperturaPct,tipoIndexacion,CAT_Pct,PagoMensual,DesembolsoInicial
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,687500,550000,15,25000,9.38,1,fija,12.2,6569.42,197017.5
+Banorte,Banorte,Hipoteca Fuerte,Apoyo Infonavit,687500,550000,15,25000,9.38,1,fija,12.2,6569.42,197017.5
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,687500,550000,15,25000,9.38,1,fija,12.2,6569.42,197017.5
+Banorte,Banorte,Hipoteca Fuerte,Cuenta Infonavit + Banorte,687500,385000,15,25000,9.38,1,fija,12.8,4728.72,197017.5
+Banorte,Banorte,Hipoteca Fuerte,FOVISSSTE para todos,687500,550000,15,25000,9.78,0,fija,10.8,6210.22,196267.5
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,687500,550000,15,25000,9.78,0,fija,11.2,6364.22,193875
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,687500,550000,15,25000,11.18,0,fija,9.9,6365.4,193875
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo Infonavit,687500,550000,15,25000,11.18,0,fija,9.9,6365.4,193875
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,687500,550000,15,25000,11.18,0,fija,9.9,6365.4,193875
+Banorte,Banorte,Hipoteca Verde,Tradicional,687500,550000,15,25000,11.08,0,fija,9.9,6330.16,193875
+Banorte,Banorte,Hipoteca Verde,Apoyo Infonavit,687500,550000,15,25000,11.08,0,fija,9.9,6330.16,193875
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,687500,550000,15,25000,11.08,0,fija,9.9,6330.16,193875
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,687500,550000,15,25000,10.68,1,fija,12.2,7019.03,197017.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo Infonavit,687500,550000,15,25000,10.68,1,fija,12.2,7019.03,197017.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,687500,550000,15,25000,10.68,1,fija,12.2,7019.03,197017.5
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,687500,550000,15,25000,10.55,0,fija,13.5,6263.75,193875
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo Infonavit,687500,550000,15,25000,10.55,0,fija,12.1,6263.75,193875
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,687500,550000,15,25000,10.55,0,fija,12.1,6263.75,193875
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,687500,550000,15,25000,11.08,0,fija,12.1,7093.91,193875
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo Infonavit,687500,550000,15,25000,11.08,0,fija,12.1,7093.91,193875
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,687500,550000,15,25000,11.08,0,fija,12.1,7093.91,193875
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,1250000,1000000,20,23399.51,9.38,0,fija,11.7,11699.76,356875
+Banorte,Banorte,Hipoteca Fuerte,Apoyo Infonavit,1250000,1000000,20,23399.51,9.38,0,fija,11.7,11699.76,356875
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,1250000,1000000,20,23399.51,9.38,0,fija,11.7,11699.76,356875
+Banorte,Banorte,Hipoteca Fuerte,Cuenta Infonavit + Banorte,1250000,700000,20,16706.06,9.38,0,fija,12.1,8353.03,356875
+Banorte,Banorte,Hipoteca Fuerte,Fovissste para Todos,1250000,1000000,20,22582.61,9.78,0,fija,10.8,11291.3,356125
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,1250000,1000000,20,23142.61,9.78,0,fija,11.2,11571.3,352500
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,1250000,1000000,20,23146.91,11.18,0,fija,9.9,11573.45,352500
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo Infonavit,1250000,1000000,20,23146.91,11.18,0,fija,9.9,11573.45,352500
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,1250000,1000000,20,23146.91,11.18,0,fija,9.9,11573.45,352500
+Banorte,Banorte,Hipoteca Verde Banorte,Tradicional,1250000,1000000,20,23016.76,11.08,0,fija,9.9,11509.38,352500
+Banorte,Banorte,Hipoteca Verde Banorte,Apoyo Infonavit,1250000,1000000,20,23016.76,11.08,0,fija,9.9,11509.38,352500
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,1250000,1000000,20,23016.76,11.08,0,fija,9.9,11509.38,352500
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,1250000,1000000,20,25127.24,10.68,1,fija,11.7,12512.17,356875
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo Infonavit,1250000,1000000,20,25127.24,10.68,1,fija,11.7,12512.17,356875
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,1250000,1000000,20,25127.24,10.68,1,fija,11.7,12512.17,356875
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,1250000,1000000,20,22820.84,10.55,0,fija,13.1,11114,352500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo Infonavit,1250000,1000000,20,22820.84,10.55,0,fija,11.6,11114,352500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,1250000,1000000,20,22820.84,10.55,0,fija,11.6,11114,352500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,1250000,1000000,20,25306.76,11.08,0,fija,11.6,12653.38,352500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo Infonavit,1250000,1000000,20,25306.76,11.08,0,fija,11.6,12653.38,352500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,1250000,1000000,20,25306.76,11.08,0,fija,11.6,12653.38,352500
+Banorte,Banorte,Hipoteca Fuerte,Apoyo INFONAVIT,1625000,1300000,20,27297.05,9.38,1,fija,11.5,13648.53,463712.5
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,1625000,1300000,20,27297.05,9.38,1,fija,11.5,13648.53,463712.5
+Banorte,Banorte,Hipoteca Fuerte,Cuenta INFONAVIT + Banorte,1625000,910000,20,19478.44,9.38,1,fija,11.8,9739.22,463712.5
+Banorte,Banorte,Hipoteca Fuerte,FOVISSSTE para todos,1625000,1300000,20,26496.41,9.78,1,fija,10.8,13248.21,462962.5
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,1625000,1300000,20,27224.41,9.78,1,fija,11.1,13612.21,458250
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,1625000,1300000,20,27421.58,11.18,1,fija,9.9,13710.79,458250
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo INFONAVIT,1625000,1300000,20,27421.58,11.18,1,fija,9.9,13710.79,458250
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,1625000,1300000,20,27421.58,11.18,1,fija,9.9,13710.79,458250
+Banorte,Banorte,Hipoteca Verde Banorte,Tradicional,1625000,1300000,20,27241.02,11.08,1,fija,9.9,13620.51,458250
+Banorte,Banorte,Hipoteca Verde Banorte,Apoyo INFONAVIT,1625000,1300000,20,27241.02,11.08,1,fija,9.9,13620.51,458250
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,1625000,1300000,20,27241.02,11.08,1,fija,9.9,13620.51,458250
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,1625000,1300000,20,29599.19,10.68,1,fija,11.5,14799.6,463712.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo INFONAVIT,1625000,1300000,20,29599.19,10.68,1,fija,11.5,14799.6,463712.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,1625000,1300000,20,29599.19,10.68,1,fija,11.5,14799.6,463712.5
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,1625000,1300000,20,26195,10.55,1,fija,13,13097.5,458250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo INFONAVIT,1625000,1300000,20,26195,10.55,1,fija,11.4,13097.5,458250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,1625000,1300000,20,26195,10.55,1,fija,11.4,13097.5,458250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,1625000,1300000,20,30036.02,11.08,1,fija,11.4,15018.01,458250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo INFONAVIT,1625000,1300000,20,30036.02,11.08,1,fija,11.4,15018.01,458250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,1625000,1300000,20,30036.02,11.08,1,fija,11.4,15018.01,458250
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,1625000,1300000,20,27297.05,9.38,1,fija,11.5,13648.53,463712.5
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,2250000,1800000,20,37565.92,9.38,1,fija,11.4,18782.96,641775
+Banorte,Banorte,Hipoteca Fuerte,Apoyo INFONAVIT,2250000,1800000,20,37565.92,9.38,1,fija,11.4,18782.96,641775
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,2250000,1800000,20,37565.92,9.38,1,fija,11.4,18782.96,641775
+Banorte,Banorte,Hipoteca Fuerte,Cuenta INFONAVIT + BANORTE,2250000,1260000,20,26740.14,9.38,1,fija,11.7,13307.07,641775
+Banorte,Banorte,Hipoteca Fuerte,FOVISSSTE para todos,2250000,1800000,20,36687.34,9.78,1,fija,10.8,18343.67,641025
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,2250000,1800000,20,37695.34,9.78,1,fija,11.1,18847.67,634500
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,2250000,1800000,20,37968.34,11.18,1,fija,9.9,18984.17,634500
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo INFONAVIT,2250000,1800000,20,37968.34,11.18,1,fija,9.9,18984.17,634500
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,2250000,1800000,20,37968.34,11.18,1,fija,9.9,18984.17,634500
+Banorte,Banorte,Hipoteca Verde Banorte,Tradicional,2250000,1800000,20,37718.33,9.38,0,fija,9.9,18859.17,634500
+Banorte,Banorte,Hipoteca Verde Banorte,Apoyo INFONAVIT,2250000,1800000,20,37718.33,9.38,0,fija,9.9,18859.17,634500
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,2250000,1800000,20,37718.33,9.38,0,fija,9.9,18859.17,634500
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,2250000,1800000,20,40753.5,9.38,1,fija,11.4,20376.75,641775
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo INFONAVIT,2250000,1800000,20,40753.5,9.38,1,fija,11.4,20376.75,641775
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,2250000,1800000,20,40753.5,9.38,1,fija,11.4,20376.75,641775
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,2250000,1800000,20,36040,9.38,0,fija,12.9,18020,634500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo INFONAVIT,2250000,1800000,20,36040,9.38,0,fija,11.3,18020,634500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,2250000,1800000,20,36040,9.38,0,fija,11.3,18020,634500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,2250000,1800000,20,41358.33,9.38,0,fija,11.3,20679.17,634500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo INFONAVIT,2250000,1800000,20,41358.33,9.38,0,fija,11.3,20679.17,634500
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,2250000,1800000,20,41358.33,9.38,0,fija,11.3,20679.17,634500
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,3125000,2500000,15,57601.79,9.38,1,fija,11.4,28800.89,891062.5
+Banorte,Banorte,Hipoteca Fuerte,Apoyo INFONAVIT,3125000,2500000,15,57601.79,9.38,1,fija,11.4,28800.89,891062.5
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,3125000,2500000,15,59156.81,9.38,1,fija,11.4,29578.41,891062.5
+Banorte,Banorte,Hipoteca Fuerte,Cuenta INFONAVIT + BANORTE,3125000,1750000,15,41956.67,9.38,1,fija,11.7,20978.33,891062.5
+Banorte,Banorte,Hipoteca Fuerte,FOVISSSTE para todos,3125000,2500000,15,56456.51,9.78,0,fija,10.8,28228.26,890312.5
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,3125000,2500000,15,57856.51,9.78,0,fija,11.2,28928.26,881250
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,3125000,2500000,15,57867.27,11.18,0,fija,9.9,28933.64,881250
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo INFONAVIT,3125000,2500000,15,57867.27,11.18,0,fija,9.9,28933.64,881250
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,3125000,2500000,15,57867.27,11.18,0,fija,9.9,28933.64,881250
+Banorte,Banorte,Hipoteca Verde Banorte,Tradicional,3125000,2500000,15,57546.9,11.08,0,fija,9.9,28773.45,881250
+Banorte,Banorte,Hipoteca Verde Banorte,Apoyo INFONAVIT,3125000,2500000,15,57546.9,11.08,0,fija,9.9,28773.45,881250
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,3125000,2500000,15,57546.9,11.08,0,fija,9.9,28773.45,881250
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,3125000,2500000,15,61689.22,10.68,1,fija,11.4,30844.61,891062.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo INFONAVIT,3125000,2500000,15,61689.22,10.68,1,fija,11.4,30844.61,891062.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,3125000,2500000,15,61689.22,10.68,1,fija,11.4,30844.61,891062.5
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,3125000,2500000,15,54823,10.55,0,fija,12.8,27411.5,881250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo INFONAVIT,3125000,2500000,15,54823,10.55,0,fija,11.3,27411.5,881250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,3125000,2500000,15,54823,10.55,0,fija,11.3,27411.5,881250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,3125000,2500000,15,62369.9,11.08,0,fija,11.3,31184.95,881250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo INFONAVIT,3125000,2500000,15,62369.9,11.08,0,fija,11.3,31184.95,881250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,3125000,2500000,15,62369.9,11.08,0,fija,11.3,31184.95,881250
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,1000000,800000,20,17028.19,9.38,1,fija,11.8,8514.09,286230
+Banorte,Banorte,Hipoteca Fuerte,Apoyo INFONAVIT,1000000,800000,20,17028.19,9.38,1,fija,11.8,8514.09,286230
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,1000000,800000,20,17028.19,9.38,1,fija,11.8,8514.09,286230
+Banorte,Banorte,Hipoteca Fuerte,Cuenta INFONAVIT + BANORTE,1000000,800000,20,12216.73,9.38,1,fija,12.2,6108.37,286230
+Banorte,Banorte,Hipoteca Fuerte,FOVISSSTE para todos,1000000,800000,20,16305.48,9.78,1,fija,10.8,8152.74,285480
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,1000000,800000,20,16753.48,9.78,1,fija,11.1,8376.74,282000
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,1000000,800000,20,16874.82,11.18,1,fija,9.9,8437.41,282000
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo INFONAVIT,1000000,800000,20,16874.82,11.18,1,fija,9.9,8437.41,282000
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,1000000,800000,20,16874.82,11.18,1,fija,9.9,8437.41,282000
+Banorte,Banorte,Hipoteca Verde Banorte,Tradicional,1000000,800000,20,16763.7,11.08,1,fija,9.9,8381.85,282000
+Banorte,Banorte,Hipoteca Verde Banorte,Apoyo INFONAVIT,1000000,800000,20,16763.7,11.08,1,fija,9.9,8381.85,282000
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,1000000,800000,20,16763.7,11.08,1,fija,9.9,8381.85,282000
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,1000000,800000,20,18444.89,10.68,1,fija,11.8,9222.44,286230
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo INFONAVIT,1000000,800000,20,18444.89,10.68,1,fija,11.8,9222.44,286230
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,1000000,800000,20,18444.89,10.68,1,fija,11.8,9222.44,286230
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,1000000,800000,20,16350,10.55,1,fija,13.2,8175,282000
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo INFONAVIT,1000000,800000,20,16350,10.55,1,fija,11.7,8175,282000
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,1000000,800000,20,16350,10.55,1,fija,11.7,8175,282000
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,1000000,800000,20,18713.7,11.08,1,fija,11.7,9356.85,282000
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo INFONAVIT,1000000,800000,20,18713.7,11.08,1,fija,11.7,9356.85,282000
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,1000000,800000,20,18713.7,11.08,1,fija,11.7,9356.85,282000
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,1125000,900000,10,25659.32,9.38,1,fija,11.9,12829.66,321480
+Banorte,Banorte,Hipoteca Fuerte,Apoyo INFONAVIT,1125000,900000,10,25659.32,9.38,1,fija,11.9,12829.66,321480
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,1125000,900000,10,25659.32,9.38,1,fija,11.9,12829.66,321480
+Banorte,Banorte,Hipoteca Fuerte,Cuenta INFONAVIT + BANORTE,1125000,900000,10,18273.22,9.38,1,fija,12.4,9136.61,321480
+Banorte,Banorte,Hipoteca Fuerte,FOVISSSTE para todos,1125000,900000,10,24777.91,9.78,1,fija,10.8,12388.96,320730
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,1125000,900000,10,25281.91,9.78,1,fija,11.2,12640.96,317250
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,1125000,900000,10,25131.47,11.18,1,fija,9.9,12565.74,317250
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo INFONAVIT,1125000,900000,10,25131.47,11.18,1,fija,9.9,12565.74,317250
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,1125000,900000,10,25131.47,11.18,1,fija,9.9,12565.74,317250
+Banorte,Banorte,Hipoteca Verde Banorte,Tradicional,1125000,900000,10,25027.61,11.08,1,fija,9.9,12513.8,317250
+Banorte,Banorte,Hipoteca Verde Banorte,Apoyo INFONAVIT,1125000,900000,10,25027.61,11.08,1,fija,9.9,12513.8,317250
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,1125000,900000,10,25027.61,11.08,1,fija,9.9,12513.8,317250
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,1125000,900000,10,26990.33,10.68,1,fija,11.9,13495.17,321480
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo INFONAVIT,1125000,900000,10,26990.33,10.68,1,fija,11.9,13495.17,321480
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,1125000,900000,10,26990.33,10.68,1,fija,11.9,13495.17,321480
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,1125000,900000,10,0,10.55,1,fija,11.8,0,317250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo INFONAVIT,1125000,900000,10,0,10.55,1,fija,11.8,0,317250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,1125000,900000,10,0,10.55,1,fija,11.8,0,317250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,1125000,900000,10,27146.61,11.08,1,fija,11.8,13573.3,317250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo INFONAVIT,1125000,900000,10,27146.61,11.08,1,fija,11.8,13573.3,317250
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,1125000,900000,10,27146.61,11.08,1,fija,11.8,13573.3,317250
+Banorte,Banorte,Hipoteca Fuerte,Tradicional,1875000,1500000,10,42366.87,9.38,1,fija,11.6,21183.43,534937.5
+Banorte,Banorte,Hipoteca Fuerte,Apoyo INFONAVIT,1875000,1500000,10,42366.87,9.38,1,fija,11.6,21183.43,534937.5
+Banorte,Banorte,Hipoteca Fuerte,Cofinavit,1875000,1500000,10,42366.87,9.38,1,fija,11.6,21183.43,534937.5
+Banorte,Banorte,Hipoteca Fuerte,Cuenta INFONAVIT + BANORTE,1875000,1050000,10,30056.71,9.38,1,fija,12,15028.35,534937.5
+Banorte,Banorte,Hipoteca Fuerte,FOVISSSTE para todos,1875000,1500000,10,41296.52,9.78,0,fija,10.8,20648.26,534187.5
+Banorte,Banorte,Hipoteca Fuerte,Ingresos Adicionales FPT,1875000,1500000,10,42136.52,9.78,0,fija,11.2,21068.26,528750
+Banorte,Banorte,Hipoteca Fuerte Cero,Tradicional,1875000,1500000,10,41885.79,11.18,0,fija,9.9,20942.89,528750
+Banorte,Banorte,Hipoteca Fuerte Cero,Apoyo INFONAVIT,1875000,1500000,10,41885.79,11.18,0,fija,9.9,20942.89,528750
+Banorte,Banorte,Hipoteca Fuerte Cero,Cofinavit,1875000,1500000,10,41885.79,11.18,0,fija,9.9,20942.89,528750
+Banorte,Banorte,Hipoteca Verde Banorte,Tradicional,1875000,1500000,10,41712.68,11.08,0,fija,9.9,20856.34,528750
+Banorte,Banorte,Hipoteca Verde Banorte,Apoyo INFONAVIT,1875000,1500000,10,41712.68,11.08,0,fija,9.9,20856.34,528750
+Banorte,Banorte,Hipoteca Verde Banorte,Cofinavit,1875000,1500000,10,41712.68,11.08,0,fija,9.9,20856.34,528750
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Tradicional,1875000,1500000,10,44585.22,10.68,1,fija,11.6,22292.61,534937.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Apoyo INFONAVIT,1875000,1500000,10,44585.22,10.68,1,fija,11.6,22292.61,534937.5
+Banorte,Banorte,Hipoteca Fuerte con Bonificación,Cofinavit,1875000,1500000,10,44585.22,10.68,1,fija,11.6,22292.61,534937.5
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Tradicional,1875000,1500000,10,0,10.55,0,fija,11.5,0,528750
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Apoyo INFONAVIT,1875000,1500000,10,0,10.55,0,fija,11.5,0,528750
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Crecientes,Cofinavit,1875000,1500000,10,0,10.55,0,fija,11.5,0,528750
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Tradicional,1875000,1500000,10,44845.68,11.08,0,fija,11.5,22422.84,528750
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Apoyo INFONAVIT,1875000,1500000,10,44845.68,11.08,0,fija,11.5,22422.84,528750
+Banorte,Banorte,Hipoteca Fuerte a tu Medida Pagos Fijos,Cofinavit,1875000,1500000,10,44845.68,11.08,0,fija,11.5,22422.84,528750
+Santander,Santander,Hipoteca Integral,Tradicional,687500,481250,15,25000,12.5,0.7,fija,16.3,6696.99,291616.93
+Santander,Santander,Hipoteca Integral,Tradicional,1250000,875000,20,45000,12.5,0.7,fija,15.7,11095.73,530486.86
+Santander,Santander,Hipoteca Integral,Tradicional,1625000,1137500,20,80000,12.5,0.7,fija,15.6,14337.45,689193.72
+Santander,Santander,Hipoteca Integral,Tradicional,2250000,1575000,20,75000,12.5,0.7,fija,15.5,19740.31,952205.15
+Santander,Santander,Hipoteca Integral,Tradicional,3125000,2187500,15,120000,12.5,0.7,fija,15.5,23412.67,1314931.85
+Santander,Santander,Hipoteca Integral,Tradicional,1000000,700000,20,35000,12.5,0.7,fija,15.8,8934.58,424182.29
+Santander,Santander,Hipoteca Integral,Tradicional,1125000,787500,10,65000,12.5,0.7,fija,16.1,12595.17,472290.37
+Santander,Santander,Hipoteca Integral,Tradicional,1875000,1312500,10,100000,12.5,0.7,fija,15.8,20798.62,784341.28
+Santander,Santander,Hipoteca Free,Tradicional,687500,550000,15,11950,11.35,0,fija,11.7,6572.5,48125
+Santander,Santander,Hipoteca Free,Tradicional,1250000,1000000,20,20018.18,11.35,0,fija,11.6,11010,87500
+Santander,Santander,Hipoteca Free,Tradicional,1625000,1300000,20,26023.64,11.35,0,fija,11.6,14313,113750
+Santander,Santander,Hipoteca Free,Tradicional,2250000,1800000,25,36032.73,11.35,0,fija,11.6,19818,157500
+Santander,Santander,Hipoteca Free,Tradicional,3125000,2500000,15,54318.18,11.35,0,fija,11.7,29875,218750
+Santander,Santander,Hipoteca Free,Tradicional,1000000,800000,30,16014.55,11.35,0,fija,11.6,8808,70000
+Santander,Santander,Hipoteca Free,Tradicional,1125000,900000,10,23269.09,11.35,0,fija,11.9,12798,78750
+Santander,Santander,Hipoteca Free,Tradicional,1875000,1500000,10,38781.82,11.35,0,fija,11.9,21330,131250

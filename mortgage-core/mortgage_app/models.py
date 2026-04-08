@@ -95,7 +95,7 @@ class BankProduct(models.Model):
 class ProductRate(models.Model):
     product = models.ForeignKey(BankProduct, on_delete=models.CASCADE, related_name='rates')
     name = models.CharField(max_length=50) # Ej. "Premium"
-    annual_rate = models.DecimalField(max_digits=6, decimal_places=5) # Ej. 0.0938
+    annual_rate = models.DecimalField(max_digits=6, decimal_places=5)
 
     def __str__(self):
         return f"{self.product.name} - {self.name} ({self.annual_rate})"
