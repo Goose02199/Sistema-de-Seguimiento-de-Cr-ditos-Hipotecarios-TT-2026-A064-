@@ -105,40 +105,28 @@ class Bank(models.Model):
         return self.name
 
 class BankProduct(models.Model):
-    PRODUCT_TYPES = [
-        ('tradicional', 'Tradicional'),
-        ('apoyo', 'Apoyo INFONAVIT'),
-        ('cofinavit', 'Cofinavit'),
-        ('fpt', 'FPT (FOVISSSTE-Banorte)')
-    ]
-
+    # Relación con el Banco (bank_id)
     bank = models.ForeignKey(Bank, on_delete=models.CASCADE, related_name='products')
-    name = models.CharField(max_length=150) # Ej. "Hipoteca Fuerte Tradicional"
-    product_key = models.CharField(max_length=50) # Ej. "tradicional"
-    type = models.CharField(max_length=20, choices=PRODUCT_TYPES)
     
-    # Políticas de Riesgo y Aforo
-    max_ltv = models.DecimalField(max_digits=5, decimal_places=4) # aforo_max (Ej. 0.9000)
-    income_payment_ratio = models.FloatField(default=2.0) # relacion_ir (Ej. 2.0)
-    
-    # Comisiones y Gastos
-    opening_commission_pct = models.DecimalField(max_digits=5, decimal_places=4) # 0.01
-    is_commission_financed = models.BooleanField(default=True)
-    appraisal_pct_mil = models.DecimalField(max_digits=5, decimal_places=4, default=0.0025)
-    appraisal_fixed_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    notary_fees_pct = models.DecimalField(max_digits=5, decimal_places=4, default=0.0820)
-    admin_fee_monthly = models.DecimalField(max_digits=10, decimal_places=2)
+    # Columnas físicas que SÍ existen en tu backup
+    name = models.CharField(max_length=150)
+    product_key = models.CharField(max_length=50, unique=True)
+    politicas_json = models.JSONField(help_text="Contiene toda la lógica: tasas, aforo, seguros, etc.")
 
-    # Configuración de Seguros (Guardado como JSON para flexibilidad entre bancos)
-    insurance_config = models.JSONField(help_text="Estructura de seguros de vida y daños")
+    # --- Propiedades Dinámicas ---
+    # Esto permite que hagas 'product.max_ltv' aunque no sea una columna en la DB
+    @property
+    def max_ltv(self):
+        return self.politicas_json.get('politicas', {}).get('aforo_max', 0.90)
+
+    @property
+    def product_type(self):
+        return self.politicas_json.get('politicas', {}).get('tipo', 'tradicional')
+
+    @property
+    def opening_commission(self):
+        return self.politicas_json.get('politicas', {}).get('comision_apertura_pct', 0.01)
 
     def __str__(self):
         return f"{self.bank.name} - {self.name}"
     
-class ProductRate(models.Model):
-    product = models.ForeignKey(BankProduct, on_delete=models.CASCADE, related_name='rates')
-    name = models.CharField(max_length=50) # Ej. "Premium"
-    annual_rate = models.DecimalField(max_digits=6, decimal_places=5)
-
-    def __str__(self):
-        return f"{self.product.name} - {self.name} ({self.annual_rate})"
