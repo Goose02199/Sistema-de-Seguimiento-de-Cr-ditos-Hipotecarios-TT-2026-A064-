@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import RiskAssessmentView, BankRecommendationView
+from .views import RiskAssessmentView, BankRecommendationView, LoanApplicationCreateView
 
 urlpatterns = [
     path('analyze-risk/', RiskAssessmentView.as_view(), name='analyze_risk'),
     path('recommend-banks/', BankRecommendationView.as_view(), name='recommend_banks'),
-    path('analyze-risk/', RiskAssessmentView.as_view(), name='analyze_risk'),
+    path('applications/', LoanApplicationCreateView.as_view(), name='loan-application-create'),
 ]

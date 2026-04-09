@@ -1,11 +1,14 @@
 from rest_framework import serializers
 from .models import LoanApplication
 
+from rest_framework import serializers
+from .models import LoanApplication
+
 class LoanApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoanApplication
         fields = '__all__'
-        read_only_fields = ['status', 'risk_label', 'created_at']
+        read_only_fields = ('risk_score', 'risk_label', 'prob_low', 'prob_medium', 'prob_high', 'recommendations_data', 'status', 'created_at')
 
 class BankRecommendationSerializer(serializers.Serializer):
     """
@@ -24,8 +27,6 @@ class BankRecommendationSerializer(serializers.Serializer):
                 {"monto_credito": "El monto del crédito no puede ser mayor o igual al valor de la vivienda."}
             )
         return data
-
-from rest_framework import serializers
 
 class RiskAssessmentSerializer(serializers.Serializer):
     """
