@@ -30,7 +30,7 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           // Llamada directa a axios para el refresco [cite: 2026-03-05]
-          const response = await axios.post(`${import.meta.env.VITE_API_URL}/token/refresh/`, {
+          const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/token/refresh/`, {
             refresh: refreshToken,
           });
 

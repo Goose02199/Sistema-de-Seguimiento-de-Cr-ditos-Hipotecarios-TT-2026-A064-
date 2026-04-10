@@ -24,7 +24,7 @@ const Login = () => {
 
     try {
       const payload = { ...data, captcha_token: captchaToken };
-      const response = await api.post('/login/', payload);
+      const response = await api.post('/auth/login/', payload);
       
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);

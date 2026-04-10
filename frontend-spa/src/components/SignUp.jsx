@@ -21,7 +21,7 @@ const ResendActivation = ({ email }) => {
     setLoading(true);
     setMessage('');
     try {
-      await api.post('/resend-activation/', { email });
+      await api.post('/auth/resend-activation/', { email });
       setMessage('Enlace reenviado con éxito.');
       setSeconds(60); // Bloqueo de 60 segundos por seguridad [cite: 2026-03-02]
     } catch (error) {
@@ -81,7 +81,7 @@ const SignUp = () => {
     return;
   }
     try {
-      await api.post(`/register/`, {...data, captcha_token: captchaToken});
+      await api.post(`/auth/register/`, {...data, captcha_token: captchaToken});
       setRegisterSuccess('¡Éxito! Hemos enviado un enlace a tu correo.');
     } catch (error) {
       if (error.response?.data?.password) {

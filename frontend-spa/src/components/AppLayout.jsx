@@ -28,7 +28,7 @@ const AppLayout = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await api.get('/me/');
+        const response = await api.get('/auth/me/');
         setUser(response.data);
       } catch (error) {
         // Si el interceptor falla (ej. refresh token también expiró) [cite: 2026-03-02]
@@ -63,7 +63,7 @@ const AppLayout = () => {
       // 2. Intentamos invalidarlo en el backend (Lista Negra) [cite: 2026-03-02]
       if (refreshToken) {
         // Tu instancia 'api' ya debería llevar el Access Token en los headers
-        await api.post('/logout/', { refresh: refreshToken });
+        await api.post('/auth/logout/', { refresh: refreshToken });
       }
     } catch (error) {
       // Si falla (token ya expirado o error de red), lo registramos pero seguimos

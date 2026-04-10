@@ -26,7 +26,7 @@ const PasswordResetConfirm = () => {
 
     setLoading(true);
     try {
-      await api.post('/password-reset-confirm/', { 
+      await api.post('/auth/password-reset-confirm/', { 
         uid, token, 
         new_password: passwords.new_password 
       });

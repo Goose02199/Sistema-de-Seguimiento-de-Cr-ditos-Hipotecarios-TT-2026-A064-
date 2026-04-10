@@ -45,7 +45,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await api.get(`/me/`);
+        const response = await api.get(`/auth/me/`);
         setUserData(response.data);
         // Pre-cargamos los valores en el formulario de perfil
         resetProfile(response.data);
@@ -61,7 +61,7 @@ const Profile = () => {
   const onPasswordChange = async (data) => {
     setPassMsg({ type: '', text: '' });
     try {
-      await api.post(`/change-password/`, data);
+      await api.post(`/auth/change-password/`, data);
       setPassMsg({ type: 'success', text: 'Contraseña actualizada correctamente.' });
       resetPass(); // Limpia solo el formulario de password
     } catch (error) {
@@ -76,7 +76,7 @@ const Profile = () => {
   const onUpdateProfile = async (data) => {
     setProfileMsg({ type: '', text: '' });
     try {
-      await api.patch('/me/', data); 
+      await api.patch('/auth/me/', data); 
       setProfileMsg({ type: 'success', text: 'Datos actualizados correctamente.' });
       setUserData({ ...userData, ...data });
       setIsEditing(false);
@@ -99,7 +99,7 @@ const Profile = () => {
     if (!window.confirm("¿Estás seguro? Esta acción desactivará tu acceso permanentemente.")) return;
     
     try {
-      await api.post('/deactivate-account/', data);
+      await api.post('/auth/deactivate-account/', data);
       // Limpieza de tokens y salida
       localStorage.clear();
       window.location.href = '/login';

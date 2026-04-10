@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-default-key')
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*'] # Para desarrollo en Docker
+ALLOWED_HOSTS = ['www.2026-a064.lat', 'mortgage-core', 'localhost', 'api-gateway']
 
 INSTALLED_APPS = [
     'django.contrib.admin',

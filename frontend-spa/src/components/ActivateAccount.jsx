@@ -17,7 +17,7 @@ const ActivateAccount = () => {
 
       try {
         // Restauramos los parámetros necesarios para Django [cite: 2026-03-03]
-        await api.get(`/activate/${uid}/${token}/`);
+        await api.get(`/auth/activate/${uid}/${token}/`);
         setStatus('success');
         setTimeout(() => navigate('/login'), 5000);
       } catch (err) {

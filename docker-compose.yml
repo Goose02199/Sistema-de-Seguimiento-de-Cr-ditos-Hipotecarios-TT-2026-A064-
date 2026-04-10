@@ -6,6 +6,8 @@ services:
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     environment:
       - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - mortgage-network
     depends_on:
       - api-gateway
 
@@ -20,6 +22,8 @@ services:
       POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
     volumes:
       - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - mortgage-network
     ports:
       - "5433:5432" # Mapeo a puerto diferente para evitar conflictos locales
 
@@ -55,6 +59,8 @@ services:
     depends_on:
       - auth-db
       - redis
+    networks:
+      - mortgage-network
     command: python manage.py runserver 0.0.0.0:8000 # mantener el contenedor activo
 
 
@@ -66,7 +72,11 @@ services:
     depends_on:
       - identity-service
       - frontend-spa
+      - mortgage-core
+    networks:
+      - mortgage-network
     restart: always
+    
 
   frontend-spa:
     build: ./frontend-spa
@@ -74,9 +84,12 @@ services:
     volumes:
       - ./frontend-spa:/app
       - /app/node_modules # Evita que los nodos locales sobrescriban los del contenedor [cite: 2026-03-05]
+    networks:
+      - mortgage-network
     environment:
-      - VITE_API_URL=https://www.2026-a064.lat/api/auth
+      - VITE_API_URL=https://www.2026-a064.lat/api
     restart: always
+    
 
   # Nuevo servicio para procesar tareas en segundo plano
   celery-worker:
@@ -94,7 +107,10 @@ services:
     depends_on:
       - auth-db
       - redis
+    networks:
+      - mortgage-network
     command: celery -A core worker --loglevel=info
+    
 
   intelligence-service:
       build: ./intelligence-service
@@ -117,6 +133,8 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    networks:
+      - mortgage-network
 
   mortgage-core:
     build: ./mortgage-core
