@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../../api/api';
 import { 
@@ -7,22 +7,99 @@ import {
 } from 'lucide-react';
 
 // Importaremos los sub-pasos (que crearemos a continuación)
-// import StepIdentity from './StepIdentity'; ...
+
+import Step1Identity from './Step1Identity';
+import Step2Employment from './Step2Employment';
+import Step3Financial from './Step3Financial';
+import Step4Property from './Step4Property';
+import Step5CreditHistory from './Step5CreditHistory';
+import ResultsView from './ResultsView';
+
 
 const MortgageStepper = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [sentData, setSentData] = useState(null);
 
-  const { register, handleSubmit, watch, formState: { errors }, trigger } = useForm({
+  
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors }, trigger } = useForm({
     defaultValues: {
-      user_id: 1, // Esto debería venir de tu context de auth
-      financing_type: 'bancario',
-      home_ownership: 'RENT',
+      // Identidad y Vivienda (Sección 1)
+      first_name: '',
+      last_name: '',
+      rfc_curp: '',
+      birth_date: '',
+      email: '',
+      phone: '',
+      home_ownership: 'RENT', 
+      postal_code: '',
+
+      // Laboral (Sección 2)
+      employment_type: 'asalariado', 
+      job_seniority: 0, 
+      company_name: '',
+      job_title: '',
+      payroll_at_bank: false, 
+
+      // Finanzas (Sección 3)
+      monthly_income: 0, 
+      monthly_expenses: 0, 
+      installment: 0, 
       verification_status: 'not_verified',
-      loan_term: 20
+
+      // Crédito y Propiedad (Sección 4)
+      property_value: 0, 
+      down_payment_pct: 10, 
+      loan_amnt: 0, 
+      loan_term: 20, 
+      financing_type: 'bancario', 
+      housing_subaccount: 0, 
+
+      // Buró de Crédito (Sección 5)
+      revol_bal: 0,
+      total_rev_hi_lim: 0, 
+      revol_util: 0, 
+      open_acc: 0, 
+      total_acc: 0, 
+      delinq_2yrs: 0, 
+      inq_last_6mths: 0,
+      earliest_cr_line_year: new Date().getFullYear(), 
+      tot_cur_bal: 0, 
+      tot_coll_amt: 0,  
+      has_settlements: false,
+      collections_12_mths_ex_med: 0 
     }
   });
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await api.get(`/auth/me/`);
+        const userData = response.data;
+        setUser(userData);
+        
+        // 3. Rehidratamos el formulario con los datos del servidor 
+        reset({
+          first_name: userData.first_name || '',
+          last_name: userData.last_name || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          rfc_curp: userData.curp_rfc || '', // Mapeo de nombre de campo
+          home_ownership: userData.housing_status || 'RENT',
+          postal_code: userData.postal_code || '',
+          birth_date: userData.birth_date || '',
+        });
+      } catch (error) {
+        console.error("Error al obtener datos del usuario:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUserData();
+  }, [reset]);
 
   const steps = [
     { title: 'Identidad', icon: <User size={20} /> },
@@ -33,13 +110,21 @@ const MortgageStepper = () => {
   ];
 
   const nextStep = async () => {
-    // Validamos solo los campos del paso actual antes de avanzar
     const fieldsByStep = [
-      ['full_name', 'rfc_curp', 'email'],
-      ['employment_type', 'company_name'],
-      ['loan_amnt', 'annual_inc', 'installment'],
-      ['property_value', 'loan_term'],
-      ['dti', 'revol_util']
+      // Paso 0: Identidad y Vivienda (Sección 1 del PDF) [cite: 4]
+      ['first_name', 'last_name', 'rfc_curp', 'birth_date', 'email', 'home_ownership', 'postal_code'],
+      
+      // Paso 1: Laboral (Sección 2 del PDF) [cite: 15]
+      ['employment_type', 'job_seniority', 'company_name', 'job_title'],
+      
+      // Paso 2: Finanzas (Sección 3 del PDF) [cite: 23]
+      ['monthly_income', 'monthly_expenses', 'installment', 'verification_status'],
+      
+      // Paso 3: Propiedad y Crédito (Sección 4 del PDF) [cite: 32]
+      ['property_value', 'down_payment_pct', 'loan_amnt', 'loan_term', 'financing_type'],
+      
+      // Paso 4: Historial de Buró (Sección 5 del PDF) [cite: 43]
+      ['revol_bal', 'total_rev_hi_lim', 'revol_util', 'open_acc', 'delinq_2yrs', 'earliest_cr_line_year']
     ];
     
     const isStepValid = await trigger(fieldsByStep[currentStep]);
@@ -51,18 +136,53 @@ const MortgageStepper = () => {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-         // Aseguramos que usamos el ID del usuario que AppLayout ya validó
-        const finalData = { ...data, user_id: user.id }; 
-        const response = await api.post('/core/applications/', finalData);
+        // 1. Transformación de datos según especificaciones técnicas
+        const processedData = {
+            ...data,
+            // Unión de identidad: Nombres + Apellidos [cite: 6]
+            full_name: `${data.first_name} ${data.last_name}`.trim(),
+            
+            // Cálculo de Ingreso Anual para el modelo XGBoost (Mensual * 12) [cite: 25, 30]
+            annual_inc: parseFloat(data.monthly_income) * 12,
+            
+            // Asegurar tipos de datos numéricos para los modelos de ML [cite: 3, 24]
+            loan_amnt: parseFloat(data.loan_amnt),
+            property_value: parseFloat(data.property_value),
+            installment: parseFloat(data.installment),
+            
+            // Asociación del usuario autenticado
+            user_id: user.id 
+        };
+
+        setSentData(processedData);
+
+        // 2. Limpieza de campos temporales del formulario
+        delete processedData.first_name;
+        delete processedData.last_name;
+        delete processedData.monthly_income; // Ya se transformó a annual_inc 
+
+        // 3. Envío al microservicio Core (Puerto 8001 vía Gateway)
+        const response = await api.post('/mortgage/applications/', processedData);
+        
+        // 4. Persistencia de resultados de IA (Riesgo y Recomendación) [cite: 61, 64]
         setResult(response.data);
-        setCurrentStep(5);
+        setCurrentStep(5); // Ir a vista de éxito/resultados
+
     } catch (error) {
-      console.error("Error al procesar solicitud:", error.response?.data);
-      alert("Hubo un error al procesar tu crédito. Revisa los datos.");
+        console.error("Error al procesar solicitud:", error.response?.data);
+        const errorMsg = error.response?.data?.detail || "Hubo un error al procesar tu crédito. Revisa los datos.";
+        alert(errorMsg);
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="animate-spin text-[#1A4E5E]" size={40} />
+      <span className="ml-3 text-gray-500">Cargando perfil...</span>
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-100">
@@ -82,31 +202,20 @@ const MortgageStepper = () => {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         {/* Aquí renderizaremos condicionalmente cada sección */}
-        {currentStep === 0 && (
-          <div className="space-y-4 animate-in fade-in duration-500">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <User className="text-[#1A4E5E]" /> Datos de Identificación
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Nombre Completo</label>
-                <input 
-                  {...register("full_name", { required: "Campo obligatorio" })}
-                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-[#1A4E5E] focus:border-[#1A4E5E]"
-                  placeholder="Ej. Ángel Gustavo Navarro"
-                />
-                {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name.message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">RFC / CURP</label>
-                <input 
-                  {...register("rfc_curp", { required: "Campo obligatorio" })}
-                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-[#1A4E5E] focus:border-[#1A4E5E]"
-                  placeholder="NAGA000000..."
-                />
-              </div>
-            </div>
-          </div>
+        {currentStep === 0 && <Step1Identity register={register} errors={errors} />}
+        {currentStep === 1 && <Step2Employment register={register} errors={errors} />}
+        {currentStep === 2 && <Step3Financial register={register} errors={errors} />}
+        {currentStep === 3 && (
+          <Step4Property 
+            register={register} 
+            errors={errors} 
+            watch={watch}    
+            setValue={setValue} 
+          />
+        )}
+        {currentStep === 4 && <Step5CreditHistory register={register} errors={errors} />}
+        {currentStep === 5 && result && (
+          <ResultsView sentData={sentData} receivedData={result} />
         )}
 
         {/* ... Resto de los pasos (1, 2, 3, 4) ... */}
@@ -144,23 +253,6 @@ const MortgageStepper = () => {
           </div>
         </div>
       </form>
-      
-      {/* Vista de Resultados al Final */}
-      {currentStep === 5 && result && (
-        <div className="text-center py-8 animate-in zoom-in duration-500">
-          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 size={48} />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800">¡Análisis Completado!</h2>
-          <p className="text-gray-600 mt-2">Tu solicitud ID #{result.id} ha sido procesada por nuestros modelos de IA.</p>
-          
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg inline-block">
-             <span className="text-sm text-gray-500 uppercase font-bold tracking-wider">Diagnóstico de Riesgo</span>
-             <div className="text-3xl font-black text-[#1A4E5E]">{result.risk_label}</div>
-          </div>
-          {/* Aquí mapearíamos las recomendaciones de bancos */}
-        </div>
-      )}
     </div>
   );
 };
