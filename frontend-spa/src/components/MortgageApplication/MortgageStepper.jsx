@@ -75,30 +75,59 @@ const MortgageStepper = () => {
   });
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const initStepper = async () => {
       try {
-        const response = await api.get(`/auth/me/`);
-        const userData = response.data;
+        // 1. Obtener datos del perfil
+        const userResponse = await api.get(`/auth/me/`);
+        const userData = userResponse.data;
         setUser(userData);
-        
-        // 3. Rehidratamos el formulario con los datos del servidor 
-        reset({
-          first_name: userData.first_name || '',
-          last_name: userData.last_name || '',
-          email: userData.email || '',
-          phone: userData.phone || '',
-          rfc_curp: userData.curp_rfc || '', // Mapeo de nombre de campo
-          home_ownership: userData.housing_status || 'RENT',
-          postal_code: userData.postal_code || '',
-          birth_date: userData.birth_date || '',
-        });
+
+        // 2. Verificar si ya existe una solicitud para este usuario
+        try {
+          const appResponse = await api.get(`/mortgage/applications/?user_id=${userData.id}`);
+          
+          if (appResponse.data && appResponse.data.id) {
+            // SI EXISTE: Saltamos al resumen y cargamos los datos
+            const existingApp = appResponse.data;
+            setResult(existingApp);
+            setSentData(existingApp); 
+            setCurrentStep(5);
+            reset(existingApp);
+            setResult(existingApp);
+
+            
+            // Pre-cargamos el formulario por si decide "Modificar"
+            reset({
+              ...existingApp,
+              // Desglosamos el nombre si el backend solo guardó full_name
+              // first_name: existingApp.full_name?.split(' ')[0] || '',
+              // last_name: existingApp.full_name?.split(' ').slice(1).join(' ') || '',
+            });
+          }else {
+            // Si la respuesta no tiene ID (ej. es un HTML de redirect), forzamos el formulario
+            throw new Error("Respuesta inválida");
+          }
+        } catch (appError) {
+          // Si es 404 (No encontrada), cargamos los defaults del perfil para una nueva
+          if (appError.response?.status === 404) {
+            reset({
+              first_name: userData.first_name || '',
+              last_name: userData.last_name || '',
+              email: userData.email || '',
+              phone: userData.phone || '',
+              rfc_curp: userData.curp_rfc || '',
+              home_ownership: userData.housing_status || 'RENT',
+              postal_code: userData.postal_code || '',
+            });
+          }
+        }
       } catch (error) {
-        console.error("Error al obtener datos del usuario:", error);
+        console.error("Error en inicialización:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchUserData();
+    initStepper();
   }, [reset]);
 
   const steps = [
@@ -161,8 +190,11 @@ const MortgageStepper = () => {
         delete processedData.last_name;
         delete processedData.monthly_income; // Ya se transformó a annual_inc 
 
+        // DECISIÓN: ¿POST o PATCH?
+        // Si result existe, usamos PATCH para actualizar la solicitud #ID
+        const method = result ? 'patch' : 'post';
         // 3. Envío al microservicio Core (Puerto 8001 vía Gateway)
-        const response = await api.post('/mortgage/applications/', processedData);
+        const response = await api[method]('/mortgage/applications/', processedData);
         
         // 4. Persistencia de resultados de IA (Riesgo y Recomendación) [cite: 61, 64]
         setResult(response.data);
@@ -175,6 +207,11 @@ const MortgageStepper = () => {
     } finally {
         setIsSubmitting(false);
     }
+  };
+
+  // Función para habilitar edición desde ResultsView
+  const handleEdit = () => {
+    setCurrentStep(0); // Regresamos al inicio del formulario
   };
 
   if (loading) return (
@@ -215,7 +252,11 @@ const MortgageStepper = () => {
         )}
         {currentStep === 4 && <Step5CreditHistory register={register} errors={errors} />}
         {currentStep === 5 && result && (
-          <ResultsView sentData={sentData} receivedData={result} />
+          <ResultsView 
+          sentData={sentData} 
+          receivedData={result} 
+          onEdit={handleEdit} // <--- ES VITAL PASAR ESTA PROP
+        />
         )}
 
         {/* ... Resto de los pasos (1, 2, 3, 4) ... */}
@@ -233,7 +274,7 @@ const MortgageStepper = () => {
           )}
           
           <div className="ml-auto">
-            {currentStep < 4 ? (
+            {currentStep < 5 ? (
               <button
                 type="button"
                 onClick={nextStep}
@@ -241,7 +282,7 @@ const MortgageStepper = () => {
               >
                 Siguiente <ChevronRight size={20} />
               </button>
-            ) : currentStep === 4 ? (
+            ) : currentStep === 5 ? (
               <button
                 type="submit"
                 disabled={isSubmitting}
