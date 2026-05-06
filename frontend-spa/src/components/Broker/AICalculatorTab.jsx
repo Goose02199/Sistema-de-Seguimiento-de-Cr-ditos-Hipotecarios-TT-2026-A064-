@@ -41,6 +41,7 @@ const AICalculatorTab = ({ app }) => {
   const [simData, setSimData] = useState(initialState);
   const [results, setResults] = useState({ risk: null, rec: null });
   const [loading, setLoading] = useState(false);
+  const [isJsonExpanded, setIsJsonExpanded] = useState(false);
 
   // Resetear a valores originales
   const handleReset = () => {
@@ -322,18 +323,39 @@ const AICalculatorTab = ({ app }) => {
             ) : <EmptyState text="Simula para ver el riesgo." />}
           </div>
 
-          <div className="bg-white border rounded-2xl p-6 shadow-sm overflow-hidden">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <PieChart size={14} className="text-blue-600" /> JSON Rec.
-            </h3>
+          <div className={`bg-white border rounded-2xl p-6 shadow-sm transition-all duration-300 ${isJsonExpanded ? 'fixed inset-4 z-50 overflow-hidden' : 'relative overflow-hidden'}`}>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <PieChart size={14} className="text-blue-600" /> JSON Rec.
+                </h3>
+                {results.rec && (
+                <button 
+                    onClick={() => setIsJsonExpanded(!isJsonExpanded)}
+                    className="text-[10px] font-bold text-blue-600 hover:underline no-print-sim"
+                >
+                    {isJsonExpanded ? 'Contraer Vista' : 'Ampliar Vista'}
+                </button>
+                )}
+            </div>
+
             {results.rec ? (
-              <div className="bg-slate-900 rounded-xl p-3 overflow-auto max-h-[300px]">
-                <pre className="text-blue-400 text-[9px] font-mono leading-tight">
-                  {JSON.stringify(results.rec, null, 2)}
-                </pre>
-              </div>
+                <div className={`bg-slate-900 rounded-xl p-3 overflow-auto transition-all ${isJsonExpanded ? 'h-[calc(100%-40px)]' : 'max-h-[300px]'}`}>
+                    <pre className={`text-blue-400 font-mono leading-tight transition-all duration-300 ${
+                        isJsonExpanded ? 'text-sm p-4' : 'text-[9px] p-0'
+                        }`}>
+                        {JSON.stringify(results.rec, null, 2)}
+                    </pre>
+                </div>
             ) : <EmptyState text="Simula para ver el Top 5." />}
-          </div>
+
+            {/* Overlay para cerrar al hacer clic afuera si está expandido */}
+            {isJsonExpanded && (
+                <div 
+                className="fixed inset-0 bg-black/20 -z-10 no-print-sim" 
+                onClick={() => setIsJsonExpanded(false)} 
+                />
+            )}
+            </div>
         </div>
       </div>
     </div>

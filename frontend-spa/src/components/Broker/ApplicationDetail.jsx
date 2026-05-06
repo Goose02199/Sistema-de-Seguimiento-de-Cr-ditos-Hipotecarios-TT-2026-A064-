@@ -54,6 +54,7 @@ const ApplicationDetail = ({ app, onBack }) => {
       <div className="flex border-b border-gray-200">
         <TabButton active={activeTab === 'expediente'} onClick={() => setActiveTab('expediente')} icon={<FileText size={18} />} label="Expediente del Cliente" />
         <TabButton active={activeTab === 'analisis'} onClick={() => setActiveTab('analisis')} icon={<Activity size={18} />} label="Análisis de Riesgo e IA" />
+        <TabButton active={activeTab === 'documentos'} onClick={() => setActiveTab('documentos')} icon={<ShieldCheck size={18} />} label="Documentos" />
         <TabButton active={activeTab === 'calculadora'} onClick={() => setActiveTab('calculadora')} icon={<FlaskConical size={18} />} label="Calculadora IA" />
       </div>
 
@@ -122,6 +123,7 @@ const ApplicationDetail = ({ app, onBack }) => {
             </div>
           </div>
         ) }
+        {activeTab === 'documentos' && <DocumentManager app={app} />}
         {activeTab === 'analisis' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-1 space-y-6">

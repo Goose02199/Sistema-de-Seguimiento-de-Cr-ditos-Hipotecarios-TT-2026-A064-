@@ -1,5 +1,63 @@
+import uuid
+import os
 from django.db import models
 from django.conf import settings
+from django.core.validators import FileExtensionValidator
+
+def get_upload_path(instance, filename):
+    """
+    Ofuscación de ruta: Los archivos se guardan con un UUID 
+    para evitar ataques de enumeración.
+    Ruta: documents/<loan_id>/<doc_type>_<uuid>.<ext>
+    """
+    ext = filename.split('.')[-1]
+    filename = f"{instance.document_type}_{uuid.uuid4()}.{ext}"
+    return os.path.join(f'documents/app_{instance.application.id}', filename)
+
+class CustomerDocument(models.Model):
+    DOCUMENT_TYPES = [
+        ('identificacion', 'Identificación Oficial'),
+        ('domicilio', 'Comprobante de Domicilio'),
+        ('ingresos', 'Comprobante de Ingresos'),
+        ('fiscal', 'Constancia de Situación Fiscal'),
+        ('buro', 'Reporte de Buró de Crédito'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'Pendiente'),
+        ('under_review', 'En Revisión'),
+        ('approved', 'Aprobado'),
+        ('rejected', 'Rechazado'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey(
+        'LoanApplication', 
+        on_delete=models.CASCADE, 
+        related_name='documents'
+    )
+    document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES)
+    
+    # Seguridad: Validamos extensiones para evitar ejecución de scripts (XSS/Malware)
+    file = models.FileField(
+        upload_to=get_upload_path,
+        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'jpg', 'jpeg', 'png'])]
+    )
+    
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='pending')
+    feedback = models.TextField(blank=True, null=True, help_text="Razón del rechazo")
+    
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Documento del Cliente"
+        verbose_name = "Documentos del Cliente"
+        # Un mismo trámite no debería tener dos documentos aprobados del mismo tipo
+        unique_together = ['application', 'document_type', 'status'] 
+
+    def __str__(self):
+        return f"{self.get_document_type_display()} - {self.application.full_name}"
 
 class LoanApplication(models.Model):
     # --- IDENTIFICACIÓN Y CONTACTO (Sección 1) ---
@@ -92,8 +150,36 @@ class LoanApplication(models.Model):
     recommendations_data = models.JSONField(null=True, blank=True)
 
     # Metadatos del sistema
-    status = models.CharField(max_length=20, default='pending') 
+    STATUS_CHOICES = [
+        # --- ETAPA 1: Formulario e IA ---
+        ('draft', 'Llenando Formulario'),
+        ('sent_awaiting_ia', 'Enviado (Espera de IA)'),
+        
+        # --- ETAPA 2: Asignación ---
+        ('assigning_broker', 'Asignando Bróker'),
+        ('broker_assigned', 'Bróker Asignado'),
+        
+        # --- ETAPA 3: Cotización (La oferta financiera) ---
+        ('reviewing_quote', 'Revisando Cotización (Bróker)'),
+        ('quote_approved', 'Cotización Aprobada'),
+        ('quote_rejected_broker', 'Rechazada por Bróker'),
+        ('waiting_client_approval', 'En espera de aceptación del cliente'),
+        ('quote_rejected_client', 'Cotización rechazada por cliente'),
+
+        # --- ETAPA 4: Documentación (KYC) ---
+        ('waiting_docs', 'En espera de documentos'),
+        ('docs_review', 'Revisando documentos'),
+        ('docs_approved', 'Documentos aprobados'),
+
+        # --- ETAPA 5: Cierre ---
+        ('waiting_appointment', 'En espera de agendamiento'),
+        ('appointment_scheduled', 'Cita agendada'),
+        ('finished', 'Proceso finalizado'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    
 
     def __str__(self):
         return f"Solicitud {self.id} - Usuario {self.user_id}"
