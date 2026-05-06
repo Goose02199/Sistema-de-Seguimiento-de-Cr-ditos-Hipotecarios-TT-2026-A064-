@@ -176,10 +176,10 @@ class LoanApplication(models.Model):
         ('appointment_scheduled', 'Cita agendada'),
         ('finished', 'Proceso finalizado'),
     ]
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    
+
 
     def __str__(self):
         return f"Solicitud {self.id} - Usuario {self.user_id}"

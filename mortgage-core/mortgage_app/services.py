@@ -53,6 +53,9 @@ class MortgageService:
         Orquestador: Extrae, valida con Serializers y envía datos a la IA.
         """
         
+        application.status = "sent_awaiting_ia"
+        application.save()
+
         # --- BLOQUE 1: RIESGO (17 Variables - XGBoost) ---
         risk_payload = {
             "loan_amnt_MXN2025": float(application.loan_amnt),
@@ -74,8 +77,9 @@ class MortgageService:
             "home_ownership": application.home_ownership
         }
 
-        # Validación Quirúrgica para Riesgo
         risk_serializer = RiskAssessmentSerializer(data=risk_payload)
+        risk_success = False
+
         if risk_serializer.is_valid():
             risk_res = IntelligenceClient.get_risk_assessment(risk_serializer.validated_data)
             
@@ -86,12 +90,12 @@ class MortgageService:
                 application.prob_low = probs.get('bajo')
                 application.prob_medium = probs.get('medio')
                 application.prob_high = probs.get('alto')
+                risk_success = True
         else:
-            logger.error(f"Error de validación para Riesgo en solicitud {application.id}: {risk_serializer.errors}")
+            logger.error(f"Error de validación Riesgo (ID: {application.id}): {risk_serializer.errors}")
 
-        # --- BLOQUE 2: RECOMENDACIÓN (4 Variables - ExtraTrees) ---
+        # 1.2 Bloque de Recomendación (ExtraTrees - 4 Variables)
         ingreso_mensual_float = float(application.annual_inc) / 12
-
         rec_payload = {
             "monto_credito": float(application.loan_amnt),
             "plazo_anios": application.loan_term,
@@ -99,20 +103,29 @@ class MortgageService:
             "valor_vivienda": float(application.property_value or 0)
         }
 
-        # Validación Quirúrgica para Recomendación
         rec_serializer = BankRecommendationSerializer(data=rec_payload)
+        rec_success = False
+
         if rec_serializer.is_valid():
             rec_res = IntelligenceClient.get_bank_recommendations(rec_serializer.validated_data)
 
             if rec_res.get("status") != "error":
                 application.recommendations_data = rec_res
-                application.status = "processed"
-            else:
-                application.status = "error_intelligence"
+                rec_success = True
         else:
-            logger.error(f"Error de validación para Recomendación en solicitud {application.id}: {rec_serializer.errors}")
-            application.status = "invalid_data"
+            logger.error(f"Error de validación Recomendación (ID: {application.id}): {rec_serializer.errors}")
 
-        # Guardamos todos los resultados (o el estado de error) en la base de datos
+        # --- FASE 2: TRANSICIÓN DE ESTADOS ---
+        if risk_success and rec_success:
+            # Si la IA terminó con éxito, pasamos automáticamente a la fase de asignación
+            application.status = "assigning_broker"
+            logger.info(f"Solicitud {application.id} procesada por IA. Pasando a asignación.")
+        elif not risk_serializer.is_valid() or not rec_serializer.is_valid():
+            application.status = "invalid_data"
+        else:
+            # Error en la comunicación con el microservicio de inteligencia
+            application.status = "error_intelligence"
+
+        # Guardamos el resultado final de la orquestación
         application.save()
         return application

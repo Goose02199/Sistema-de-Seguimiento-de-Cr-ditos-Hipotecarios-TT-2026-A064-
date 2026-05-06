@@ -23,7 +23,7 @@ const MortgageStepper = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [sentData, setSentData] = useState(null);
-
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   const { register, handleSubmit, watch, setValue, reset, formState: { errors }, trigger } = useForm({
     defaultValues: {
@@ -181,9 +181,21 @@ const MortgageStepper = () => {
     ];
     
     const isStepValid = await trigger(fieldsByStep[currentStep]);
-    if (isStepValid) setCurrentStep((prev) => prev + 1);
+    
+    if (isStepValid) {
+      // NUEVO: Si estamos pasando del paso 4 al 5, preparamos la data visual
+      if (currentStep === 4) {
+        const currentData = watch();
+        setSentData({
+          ...currentData,
+          full_name: `${currentData.first_name} ${currentData.last_name}`.trim(),
+          monthly_income: currentData.monthly_income
+        });
+      }
+      
+      setCurrentStep((prev) => prev + 1);
+    }
   };
-
   const prevStep = () => setCurrentStep((prev) => prev - 1);
 
   const onSubmit = async (data) => {
@@ -235,6 +247,39 @@ const MortgageStepper = () => {
         setIsSubmitting(false);
     }
   };
+
+  const ConfirmModal = () => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl transform animate-in zoom-in-95 duration-300">
+      <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-indigo-50 rounded-full">
+        <CheckCircle2 className="text-[#1A4E5E]" size={32} />
+      </div>
+      <h3 className="text-xl font-bold text-center text-slate-900 mb-2">
+        ¿Confirmar envío de solicitud?
+      </h3>
+      <p className="text-center text-slate-500 mb-8">
+        Una vez enviada, la IA procesará tu perfil de riesgo y se te asignará un bróker. Asegúrate de que los datos sean correctos.
+      </p>
+      <div className="flex gap-4">
+        <button
+          onClick={() => setShowConfirmModal(false)}
+          className="flex-1 px-4 py-2 font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+        >
+          Revisar datos
+        </button>
+        <button
+          onClick={() => {
+            setShowConfirmModal(false);
+            handleSubmit(onSubmit)(); // Dispara manualmente el submit de react-hook-form
+          }}
+          className="flex-1 px-4 py-2 font-semibold text-white bg-[#1A4E5E] rounded-xl hover:bg-[#133a46] transition-all shadow-md shadow-indigo-100"
+        >
+          Confirmar y Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
   // Función para habilitar edición desde ResultsView
   const handleEdit = () => {
@@ -291,12 +336,13 @@ const MortgageStepper = () => {
             watch={watch} 
           />
         )}
-        {currentStep === 5 && result && (
+        {currentStep === 5 && (
           <ResultsView 
-          sentData={sentData} 
-          receivedData={result} 
-          onEdit={handleEdit} // <--- ES VITAL PASAR ESTA PROP
-        />
+            sentData={sentData} 
+            // Si 'result' es null (primera vez), mandamos un estado temporal
+            receivedData={result || { id: 'Pendiente de envío', status: 'draft' }} 
+            onEdit={handleEdit} 
+          />
         )}
 
         {/* ... Resto de los pasos (1, 2, 3, 4) ... */}
@@ -314,7 +360,7 @@ const MortgageStepper = () => {
           )}
           
           <div className="ml-auto">
-            {currentStep < 5 ? (
+            {currentStep < 4 ? (
               <button
                 type="button"
                 onClick={nextStep}
@@ -322,9 +368,10 @@ const MortgageStepper = () => {
               >
                 Siguiente <ChevronRight size={20} />
               </button>
-            ) : currentStep === 5 ? (
+            ) : currentStep === 4 ? (
               <button
-                type="submit"
+                type="button" // IMPORTANTE: Cambiar de 'submit' a 'button'
+                onClick={() => setShowConfirmModal(true)} // Abrir modal
                 disabled={isSubmitting}
                 className="flex items-center gap-2 bg-green-600 text-white px-8 py-2 rounded-lg hover:bg-green-700 transition-all shadow-md disabled:bg-gray-400"
               >
@@ -334,6 +381,7 @@ const MortgageStepper = () => {
           </div>
         </div>
       </form>
+      {showConfirmModal && <ConfirmModal />}
     </div>
   );
 };

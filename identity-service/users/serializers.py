@@ -95,7 +95,35 @@ class PasswordChangeSerializer(serializers.Serializer):
 class ResendActivationSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-# users/serializers.py
+class BrokerRegistrationSerializer(serializers.ModelSerializer):
+    # Campo para recibir la lista de CPs (ej: ["07738", "07730"])
+    coverage_areas = serializers.ListField(
+        child=serializers.CharField(max_length=10),
+        write_only=True
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'email', 'full_name', 'password', 'location', 
+            'max_load', 'coverage_areas'
+        ]
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        coverage_areas = validated_data.pop('coverage_areas')
+        # Forzamos el rol a BROKER
+        validated_data['role'] = User.Role.BROKER
+        
+        # Creamos el usuario (con hash de contraseña)
+        user = User.objects.create_user(**validated_data)
+        
+        # Creamos las relaciones de CP
+        for cp in coverage_areas:
+            BrokerServiceArea.objects.create(broker=user, postal_code=cp)
+            
+        return user
+
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

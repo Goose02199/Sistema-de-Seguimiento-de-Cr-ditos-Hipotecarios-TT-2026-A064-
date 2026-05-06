@@ -1,4 +1,4 @@
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -12,6 +12,7 @@ from .serializers import (
     PasswordChangeSerializer,
     ResendActivationSerializer,
     UserProfileSerializer,
+    BrokerRegistrationSerializer
 )
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
@@ -292,7 +293,7 @@ class PasswordResetConfirmView(APIView):
             return Response({"message": "Contraseña restablecida correctamente."}, status=status.HTTP_200_OK)
         
         return Response({"error": "El enlace es inválido o ha expirado."}, status=status.HTTP_400_BAD_REQUEST)
-    
+
 class DeactivateAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -326,3 +327,32 @@ class DeactivateAccountView(APIView):
         )
 
         return Response({"message": "Cuenta desactivada correctamente."}, status=status.HTTP_200_OK)
+
+class AdminRegisterBrokerView(APIView):
+    """
+    Endpoint exclusivo para Administradores para dar de alta Brókers.
+    """
+    # RF: Solo usuarios con rol ADMINISTRADOR pueden acceder
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        # Verificamos manualmente el rol (o podrías usar una PermissionClass personalizada)
+        if request.user.role != 'ADMINISTRADOR':
+            return Response(
+                {"error": "No tienes permisos para realizar esta acción."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = BrokerRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            # El método .create() del serializer ya maneja la creación del User 
+            # y de las BrokerServiceArea
+            broker = serializer.save(admin_creator=request.user.full_name)
+            
+            return Response({
+                "status": "success",
+                "message": f"Bróker {broker.full_name} registrado exitosamente.",
+                "broker_id": broker.id
+            }, status=status.HTTP_201_CREATED)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

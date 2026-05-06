@@ -48,6 +48,8 @@ services:
     build: ./identity-service
     container_name: identity-service
     restart: always
+    ports:
+      - "8000:8000"
     env_file:
       - ./identity-service/.env
     volumes:

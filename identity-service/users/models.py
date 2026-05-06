@@ -18,6 +18,22 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('role', 'ADMINISTRADOR')
         return self.create_user(email, password, **extra_fields)
 
+class BrokerServiceArea(models.Model):
+    """
+    Relación de muchos a uno. Permite indexar CPs para búsquedas rápidas.
+    """
+    broker = models.ForeignKey(
+        'User', 
+        on_delete=models.CASCADE, 
+        related_name='service_areas',
+        limit_choices_to={'role': 'BROKER'}
+    )
+    postal_code = models.CharField('Código Postal cubierto', max_length=10, db_index=True)
+
+    class Meta:
+        verbose_name = "Área de servicio"
+        unique_together = ('broker', 'postal_code') # Evita duplicados para el mismo broker
+
 class User(AbstractUser):
     # Definición de Roles (RF250, RF915)
     class Role(models.TextChoices):
@@ -54,7 +70,12 @@ class User(AbstractUser):
 
     # Campos específicos para el Bróker (Tabla 34)
     admin_creator = models.CharField('Admin alta', max_length=50, blank=True, null=True) 
-    location = models.CharField('Ubicación', max_length=50, blank=True, null=True)
+    location = models.CharField('Ubicación/Oficina', max_length=50, blank=True, null=True)
+    max_load = models.IntegerField('Carga máxima', default=10)
+    current_load = models.IntegerField('Carga actual', default=0)
+    is_active_for_assignments = models.BooleanField('Disponible', default=True)
+
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['full_name']
 
