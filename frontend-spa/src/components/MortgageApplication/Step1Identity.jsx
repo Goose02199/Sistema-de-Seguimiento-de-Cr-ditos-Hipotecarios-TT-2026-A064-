@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, Calendar, Home, MapPin } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Home, MapPin, Building, Globe } from 'lucide-react';
 
 const Step1Identity = ({ register, errors }) => (
   <div className="space-y-6 animate-in fade-in duration-500">
@@ -7,7 +7,7 @@ const Step1Identity = ({ register, errors }) => (
       <User className="text-[#1A4E5E]" /> Sección 1: Perfil de Identidad y Vivienda
     </h2>
 
-    {/* Fila 1: Nombres y Apellidos (Se unirán en el backend) */}
+    {/* Fila 1: Nombres y Apellidos */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
       <div>
         <label className="block text-sm font-medium text-gray-700">Nombre(s)</label>
@@ -84,7 +84,7 @@ const Step1Identity = ({ register, errors }) => (
       </div>
     </div>
 
-    {/* Fila 4: Vivienda (Crítico para XGBoost) */}
+    {/* Fila 4: Situación de Vivienda y CP */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
       <div>
         <label className="block text-sm font-medium text-gray-700">Situación de Vivienda</label>
@@ -100,9 +100,9 @@ const Step1Identity = ({ register, errors }) => (
             <option value="MORTGAGE">Hipotecada</option>
             <option value="FAMILY">Familiar</option>
             <option value="OTHER">Otro</option>
+            <option value="None">Ninguno</option>
           </select>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1">Este campo impacta directamente en el modelo de riesgo.</p>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">Código Postal</label>
@@ -112,6 +112,45 @@ const Step1Identity = ({ register, errors }) => (
             {...register("postal_code", { required: "Dato requerido" })}
             className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-[#1A4E5E] focus:border-[#1A4E5E]"
             placeholder="07738"
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* Fila 5: Dirección Completa (NUEVO - Campo Largo) */}
+    <div className="text-left">
+      <label className="block text-sm font-medium text-gray-700">Dirección Completa (Calle, Número, Colonia)</label>
+      <div className="relative">
+        <MapPin className="absolute right-3 top-2.5 text-gray-400" size={18} />
+        <input 
+          {...register("address", { required: "La dirección es necesaria para el expediente" })}
+          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-[#1A4E5E] focus:border-[#1A4E5E]"
+          placeholder="Av. Juan de Dios Bátiz s/n, Nueva Industrial Vallejo"
+        />
+      </div>
+    </div>
+
+    {/* Fila 6: Estado y Municipio (NUEVO) */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Estado</label>
+        <div className="relative">
+          <Globe className="absolute right-3 top-2.5 text-gray-400" size={18} />
+          <input 
+            {...register("state", { required: "Estado requerido" })}
+            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-[#1A4E5E] focus:border-[#1A4E5E]"
+            placeholder="Ej. Ciudad de México"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Municipio / Alcaldía</label>
+        <div className="relative">
+          <Building className="absolute right-3 top-2.5 text-gray-400" size={18} />
+          <input 
+            {...register("municipality", { required: "Municipio requerido" })}
+            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-[#1A4E5E] focus:border-[#1A4E5E]"
+            placeholder="Ej. Gustavo A. Madero"
           />
         </div>
       </div>

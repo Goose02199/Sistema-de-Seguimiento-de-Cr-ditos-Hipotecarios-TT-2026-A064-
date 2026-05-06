@@ -197,11 +197,18 @@ const Profile = () => {
             defaultValue={userData.municipality} 
           />
           <EditableField 
-            label="Housing_status" 
+            label="Situación de Vivienda" 
             name="housing_status" 
             register={registerProfile} 
             isEditing={isEditing} 
             defaultValue={userData.housing_status} 
+          />
+          <EditableField 
+            label="Fecha de Nacimiento" 
+            name="birth_date" 
+            register={registerProfile} 
+            isEditing={isEditing} 
+            defaultValue={userData.birth_date} 
           />
           
           {isEditing && (
@@ -340,19 +347,52 @@ const CheckItem = ({ met, text }) => (
   </div>
 );
 
-const EditableField = ({ label, name, register, isEditing, defaultValue }) => (
-  <div>
-    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">{label}</label>
-    {isEditing ? (
-      <input 
-        {...register(name)} 
-        defaultValue={defaultValue}
-        className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1A4E5E] outline-none"
-      />
-    ) : (
-      <p className="text-slate-800 font-semibold">{defaultValue || 'No especificado'}</p>
-    )}
-  </div>
-);
+const EditableField = ({ label, name, register, isEditing, defaultValue }) => {
+  // Diccionario para mostrar el valor amigable en modo lectura
+  const housingLabels = {
+    'RENT': 'Renta',
+    'OWN': 'Propia',
+    'MORTGAGE': 'Hipotecada',
+    'FAMILY': 'Familiar',
+    'OTHER': 'Otro',
+    'None': 'Ninguno'
+  };
+
+  return (
+    <div>
+      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">{label}</label>
+      {isEditing ? (
+        name === "housing_status" ? (
+          <select 
+            {...register(name)} 
+            defaultValue={defaultValue}
+            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1A4E5E] outline-none bg-white appearance-none"
+          >
+            <option value="">Seleccione...</option>
+            <option value="RENT">Renta</option>
+            <option value="OWN">Propia</option>
+            <option value="MORTGAGE">Hipotecada</option>
+            <option value="FAMILY">Familiar</option>
+            <option value="OTHER">Otro</option>
+            <option value="None">Ninguno</option>
+          </select>
+        ) : (
+          <input 
+            {...register(name)} 
+            defaultValue={defaultValue}
+            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1A4E5E] outline-none"
+          />
+        )
+      ) : (
+        <p className="text-slate-800 font-semibold">
+          {name === "housing_status" 
+            ? (housingLabels[defaultValue] || defaultValue || 'No especificado')
+            : (defaultValue || 'No especificado')
+          }
+        </p>
+      )}
+    </div>
+  );
+};
 
 export default Profile;

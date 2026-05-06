@@ -42,6 +42,21 @@ class BankRecommendationView(APIView):
         # 3. Si no son válidos, DRF devuelve automáticamente los errores (400)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class LoanApplicationListView(APIView):
+    """
+    Vista para que el Broker vea todas las solicitudes (Cartera de Clientes).
+    """
+    def get(self, request):
+        # 1. Obtenemos todas las solicitudes de la DB
+        # Ordenamos por '-created_at' para ver lo más nuevo al inicio
+        applications = LoanApplication.objects.all().order_by('-created_at')
+        
+        # 2. Serializamos la lista (muchos registros = many=True)
+        serializer = LoanApplicationSerializer(applications, many=True)
+        
+        # 3. Retornamos la respuesta
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class LoanApplicationCreateView(APIView):
     """
     Vista principal para recibir el formulario de crédito,

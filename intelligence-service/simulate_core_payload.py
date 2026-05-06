@@ -113,14 +113,14 @@ def test_engine_logic():
         
         if resultado:
             mejor_opcion, df_todos = resultado
-            print(f"✅ RESCATE EXITOSO:")
+            print(f"RESCATE EXITOSO:")
             print(f"   - Nueva Tasa Sugerida: {mejor_opcion['tasa_nombre']} ({mejor_opcion['tasa_anual_pct']}%)")
             print(f"   - Nuevo % Enganche: {mejor_opcion['pct_enganche_nuevo']*100:.1f}%")
             print(f"   - Mensualidad Final: ${mejor_opcion['mens_compatible']:,.2f}")
         else:
-            print("❌ El cliente no es sujeto de crédito ni con rescate.")
+            print("El cliente no es sujeto de crédito ni con rescate.")
     else:
-        print("\n✅ El cliente cumple con la capacidad de pago inicial.")
+        print("\nEl cliente cumple con la capacidad de pago inicial.")
 
 def test_engine_section_5():
     print(f"=== Auditoría Final (Sección 5): {USUARIO_TEST['nombre']} ===\n")
@@ -132,7 +132,7 @@ def test_engine_section_5():
     cotizaciones = engine.generar_cotizaciones(USUARIO_TEST)
     
     if not cotizaciones:
-        print("❌ No se encontraron opciones viables para el cliente.")
+        print("No se encontraron opciones viables para el cliente.")
         return
 
     # Convertimos a DataFrame solo para visualizar bonito en consola

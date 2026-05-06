@@ -104,7 +104,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'email', 'full_name', 'first_name', 'last_name', 
             'role', 'is_active', 'date_joined', 'phone', 
             'marital_status', 'curp_rfc', 'address', 
-            'postal_code', 'state', 'municipality', 'housing_status'
+            'postal_code', 'state', 'municipality', 'housing_status', 'birth_date'
         ]
         # Campos que el usuario NO puede editar (Solo lectura) [cite: 2026-03-22]
         read_only_fields = ['id', 'email', 'role', 'is_active', 'date_joined']

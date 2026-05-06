@@ -3,7 +3,9 @@ from django.conf import settings
 
 class LoanApplication(models.Model):
     # --- IDENTIFICACIÓN Y CONTACTO (Sección 1) ---
-    user_id = models.IntegerField() 
+    user_id = models.IntegerField()
+    first_name = models.CharField(max_length=75, null=True, blank=True)
+    last_name = models.CharField(max_length=75, null=True, blank=True)   
     full_name = models.CharField(max_length=255, null=True, blank=True) 
     birth_date = models.DateField(null=True, blank=True) 
     rfc_curp = models.CharField(max_length=20, null=True, blank=True) 
@@ -12,6 +14,7 @@ class LoanApplication(models.Model):
     address = models.TextField(null=True, blank=True) 
     postal_code = models.CharField(max_length=10, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True) 
+    municipality = models.CharField('Municipio', max_length=50, blank=True) 
     
     # --- SITUACIÓN LABORAL (Sección 2) ---
     EMPLOYMENT_CHOICES = [

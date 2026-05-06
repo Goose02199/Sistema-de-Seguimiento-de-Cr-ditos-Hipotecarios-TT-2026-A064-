@@ -34,12 +34,16 @@ const MortgageStepper = () => {
       birth_date: '',
       email: '',
       phone: '',
-      home_ownership: 'RENT', 
+      home_ownership: 'NONE', 
+      address: '',
       postal_code: '',
+      state: '',
+      municipality: '',
 
       // Laboral (Sección 2)
       employment_type: 'asalariado', 
-      job_seniority: 0, 
+      job_seniority_years: 0, 
+      job_seniority_months: 0, 
       company_name: '',
       job_title: '',
       payroll_at_bank: false, 
@@ -48,6 +52,7 @@ const MortgageStepper = () => {
       monthly_income: 0, 
       monthly_expenses: 0, 
       installment: 0, 
+      dti: 0,
       verification_status: 'not_verified',
 
       // Crédito y Propiedad (Sección 4)
@@ -55,7 +60,9 @@ const MortgageStepper = () => {
       down_payment_pct: 10, 
       loan_amnt: 0, 
       loan_term: 20, 
+      property_location: '',
       financing_type: 'bancario', 
+      institute_credit_amount: '',
       housing_subaccount: 0, 
 
       // Buró de Crédito (Sección 5)
@@ -64,13 +71,16 @@ const MortgageStepper = () => {
       revol_util: 0, 
       open_acc: 0, 
       total_acc: 0, 
-      delinq_2yrs: 0, 
+      delinq_2yrs: 0,
+      pub_rec: 0,
       inq_last_6mths: 0,
       earliest_cr_line_year: new Date().getFullYear(), 
       tot_cur_bal: 0, 
       tot_coll_amt: 0,  
+      collections_12_mths_ex_med: 0,
       has_settlements: false,
-      collections_12_mths_ex_med: 0 
+      settlement_count: 0,
+      settlement_amount: 0
     }
   });
 
@@ -89,20 +99,16 @@ const MortgageStepper = () => {
           if (appResponse.data && appResponse.data.id) {
             // SI EXISTE: Saltamos al resumen y cargamos los datos
             const existingApp = appResponse.data;
-            setResult(existingApp);
-            setSentData(existingApp); 
-            setCurrentStep(5);
-            reset(existingApp);
-            setResult(existingApp);
 
-            
-            // Pre-cargamos el formulario por si decide "Modificar"
-            reset({
+            const hydratedData = {
               ...existingApp,
-              // Desglosamos el nombre si el backend solo guardó full_name
-              // first_name: existingApp.full_name?.split(' ')[0] || '',
-              // last_name: existingApp.full_name?.split(' ').slice(1).join(' ') || '',
-            });
+              monthly_income: existingApp.annual_inc ? (existingApp.annual_inc / 12).toFixed(2) : 0,
+            };
+
+            setResult(existingApp);
+            setSentData(hydratedData); 
+            setCurrentStep(5); 
+            reset(hydratedData);
           }else {
             // Si la respuesta no tiene ID (ej. es un HTML de redirect), forzamos el formulario
             throw new Error("Respuesta inválida");
@@ -116,8 +122,12 @@ const MortgageStepper = () => {
               email: userData.email || '',
               phone: userData.phone || '',
               rfc_curp: userData.curp_rfc || '',
+              birth_date: userData.birth_date || '',
               home_ownership: userData.housing_status || 'RENT',
+              address: userData.address || '',
               postal_code: userData.postal_code || '',
+              state: userData.state || '',
+              municipality: userData.municipality || '',
             });
           }
         }
@@ -141,19 +151,33 @@ const MortgageStepper = () => {
   const nextStep = async () => {
     const fieldsByStep = [
       // Paso 0: Identidad y Vivienda (Sección 1 del PDF) [cite: 4]
-      ['first_name', 'last_name', 'rfc_curp', 'birth_date', 'email', 'home_ownership', 'postal_code'],
+      ['first_name', 'last_name', 'rfc_curp', 'birth_date', 'email', 'home_ownership', 'address','postal_code', 'state', 'municipality'],
       
       // Paso 1: Laboral (Sección 2 del PDF) [cite: 15]
-      ['employment_type', 'job_seniority', 'company_name', 'job_title'],
+      ['employment_type', 'job_seniority_years', 'job_seniority_months', 'company_name', 'job_title', 'payroll_at_bank'],
       
       // Paso 2: Finanzas (Sección 3 del PDF) [cite: 23]
-      ['monthly_income', 'monthly_expenses', 'installment', 'verification_status'],
+      ['monthly_income', 'monthly_expenses', 'installment', 'dti', 'verification_status'],
       
       // Paso 3: Propiedad y Crédito (Sección 4 del PDF) [cite: 32]
-      ['property_value', 'down_payment_pct', 'loan_amnt', 'loan_term', 'financing_type'],
+      ['property_value', 'down_payment_pct', 'loan_amnt', 'loan_term', 'property_location','financing_type', 'institute_credit_amount','housing_subaccount'],
       
       // Paso 4: Historial de Buró (Sección 5 del PDF) [cite: 43]
-      ['revol_bal', 'total_rev_hi_lim', 'revol_util', 'open_acc', 'delinq_2yrs', 'earliest_cr_line_year']
+      ['revol_bal', 
+      'total_rev_hi_lim',
+      'revol_util',
+      'open_acc',
+      'total_acc',
+      'delinq_2yrs',
+      'pub_rec',
+      'inq_last_6mths',
+      'earliest_cr_line_year',
+      'tot_cur_bal', 
+      'tot_coll_amt',  
+      'collections_12_mths_ex_med',
+      'has_settlements',
+      'settlement_count',
+      'settlement_amount']
     ];
     
     const isStepValid = await trigger(fieldsByStep[currentStep]);
@@ -178,17 +202,20 @@ const MortgageStepper = () => {
             loan_amnt: parseFloat(data.loan_amnt),
             property_value: parseFloat(data.property_value),
             installment: parseFloat(data.installment),
+
+            institute_credit_amount: parseFloat(data.institute_credit_amount) || 0,
+            housing_subaccount: parseFloat(data.housing_subaccount) || 0,
+            settlement_amount: parseFloat(data.settlement_amount) || 0,
+            settlement_count: parseInt(data.settlement_count) || 0,
             
             // Asociación del usuario autenticado
             user_id: user.id 
         };
 
-        setSentData(processedData);
-
-        // 2. Limpieza de campos temporales del formulario
-        delete processedData.first_name;
-        delete processedData.last_name;
-        delete processedData.monthly_income; // Ya se transformó a annual_inc 
+        setSentData({
+          ...processedData,
+          monthly_income: data.monthly_income 
+        });
 
         // DECISIÓN: ¿POST o PATCH?
         // Si result existe, usamos PATCH para actualizar la solicitud #ID
@@ -241,7 +268,14 @@ const MortgageStepper = () => {
         {/* Aquí renderizaremos condicionalmente cada sección */}
         {currentStep === 0 && <Step1Identity register={register} errors={errors} />}
         {currentStep === 1 && <Step2Employment register={register} errors={errors} />}
-        {currentStep === 2 && <Step3Financial register={register} errors={errors} />}
+        {currentStep === 2 && (
+          <Step3Financial 
+            register={register} 
+            errors={errors} 
+            watch={watch} 
+            setValue={setValue} 
+          />
+        )}
         {currentStep === 3 && (
           <Step4Property 
             register={register} 
@@ -250,7 +284,13 @@ const MortgageStepper = () => {
             setValue={setValue} 
           />
         )}
-        {currentStep === 4 && <Step5CreditHistory register={register} errors={errors} />}
+        {currentStep === 4 && (
+          <Step5CreditHistory 
+            register={register} 
+            errors={errors} 
+            watch={watch} 
+          />
+        )}
         {currentStep === 5 && result && (
           <ResultsView 
           sentData={sentData} 

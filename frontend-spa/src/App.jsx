@@ -9,6 +9,7 @@ import Overview from './components/Overview';
 import PasswordResetRequest from './components/PasswordResetRequest';
 import PasswordResetConfirm from './components/PasswordResetConfirm';
 import RoleGuard from './components/RoleGuard';
+import BrokerPortfolio from './components/Broker/BrokerPortfolio';
 
 import MortgageStepper from './components/MortgageApplication/MortgageStepper';
 
@@ -28,8 +29,9 @@ function App() {
         <Route path="/activate/:uid/:token" element={<ActivateAccount />} />
         <Route path="/password-reset" element={<PasswordResetRequest />} />
         <Route path="/password-reset-confirm/:uid/:token" element={<PasswordResetConfirm />} /> 
+        <Route path="/password-reset-confirm/:uid/:token" element={<PasswordResetConfirm />} /> 
 
-        {/* Rutas Protegidas bajo el mismo Layout [cite: 2026-03-03] */}
+        {/* Rutas Protegidas bajo el mismo Layout */}
         <Route 
           path="/" 
           element={
@@ -49,6 +51,18 @@ function App() {
             element={
               <RoleGuard allowedRoles={['CLIENTE', 'BROKER']}>
                 <MortgageStepper />
+              </RoleGuard>
+            } 
+          />
+
+          <Route 
+            path="cartera" 
+            element={
+              /* De momento permitimos ambos para que puedas probarlo con cualquier usuario.
+                 En producción, aquí solo iría 'BROKER' o 'ADMIN'. 
+              */
+              <RoleGuard allowedRoles={['CLIENTE', 'BROKER']}>
+                <BrokerPortfolio />
               </RoleGuard>
             } 
           />

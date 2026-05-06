@@ -45,7 +45,11 @@ class User(AbstractUser):
     postal_code = models.CharField('Código Postal', max_length=10, blank=True) 
     state = models.CharField('Estado', max_length=50, blank=True) 
     municipality = models.CharField('Municipio', max_length=50, blank=True) 
-    housing_status = models.CharField('Situación vivienda', max_length=50, blank=True) 
+    HOME_OWNERSHIP_CHOICES = [
+        ('RENT', 'Renta'), ('OWN', 'Propia'), ('MORTGAGE', 'Hipotecada'),
+        ('OTHER', 'Otro'), ('ANY', 'Cualquiera'), ('NONE', 'Ninguno'),
+    ]
+    housing_status =  models.CharField(max_length=20, choices=HOME_OWNERSHIP_CHOICES, default='RENT') 
     person_type = models.CharField('Tipo persona', max_length=10, blank=True) 
 
     # Campos específicos para el Bróker (Tabla 34)
