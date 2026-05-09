@@ -18,22 +18,6 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('role', 'ADMINISTRADOR')
         return self.create_user(email, password, **extra_fields)
 
-class BrokerServiceArea(models.Model):
-    """
-    Relación de muchos a uno. Permite indexar CPs para búsquedas rápidas.
-    """
-    broker = models.ForeignKey(
-        'User', 
-        on_delete=models.CASCADE, 
-        related_name='service_areas',
-        limit_choices_to={'role': 'BROKER'}
-    )
-    postal_code = models.CharField('Código Postal cubierto', max_length=10, db_index=True)
-
-    class Meta:
-        verbose_name = "Área de servicio"
-        unique_together = ('broker', 'postal_code') # Evita duplicados para el mismo broker
-
 class User(AbstractUser):
     # Definición de Roles (RF250, RF915)
     class Role(models.TextChoices):
@@ -83,7 +67,15 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.email} ({self.role})"
-    
+
+class BrokerServiceArea(models.Model):
+    broker = models.ForeignKey(User, on_delete=models.CASCADE, related_name='service_areas')
+    # Guardaremos solo "06", "03", etc.
+    alcaldia_prefix = models.CharField('Prefijo de Alcaldía', max_length=2, db_index=True, blank=True)
+
+    class Meta:
+        unique_together = ('broker', 'alcaldia_prefix')
+
 class AuditLog(models.Model):
     # Tipos de eventos para facilitar el filtrado posterior
     class ActionType(models.TextChoices):

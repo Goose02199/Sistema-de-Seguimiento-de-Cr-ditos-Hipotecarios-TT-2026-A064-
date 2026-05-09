@@ -59,3 +59,28 @@ def log_audit_event(request, action, user=None, details=None):
         user_agent=request.META.get('HTTP_USER_AGENT'),
         details=details or {}
     )
+
+# identity_service/utils.py
+
+CDMX_ALCALDIAS = {
+    "01": "Álvaro Obregón",
+    "02": "Azcapotzalco",
+    "03": "Benito Juárez",
+    "04": "Coyoacán",
+    "05": "Cuajimalpa de Morelos",
+    "06": "Cuauhtémoc",
+    "07": "Gustavo A. Madero",
+    "08": "Iztacalco",
+    "09": "Iztapalapa",
+    "10": "La Magdalena Contreras",
+    "11": "Miguel Hidalgo",
+    "12": "Milpa Alta",
+    "13": "Tláhuac",
+    "14": "Tlalpan",
+    "15": "Venustiano Carranza",
+    "16": "Xochimilco",
+}
+
+def get_alcaldia_prefix(postal_code):
+    """Extrae el prefijo de la alcaldía (primeros 2 dígitos)."""
+    return str(postal_code)[:2]

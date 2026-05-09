@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import LoanApplication
-from .services import IntelligenceClient, MortgageService
+from .services import IntelligenceClient, MortgageService, IdentityClient
 from .serializers import BankRecommendationSerializer, RiskAssessmentSerializer, LoanApplicationSerializer
 
 class RiskAssessmentView(APIView):
@@ -42,20 +42,86 @@ class BankRecommendationView(APIView):
         # 3. Si no son válidos, DRF devuelve automáticamente los errores (400)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# mortgage_core/views.py
+
 class LoanApplicationListView(APIView):
     """
     Vista para que el Broker vea todas las solicitudes (Cartera de Clientes).
+    Permite filtrar dinámicamente por estado y bróker asignado.
     """
     def get(self, request):
-        # 1. Obtenemos todas las solicitudes de la DB
-        # Ordenamos por '-created_at' para ver lo más nuevo al inicio
-        applications = LoanApplication.objects.all().order_by('-created_at')
+        # 1. Leemos los posibles filtros que manda React en la URL
+        broker_id = request.query_params.get('assigned_broker_id')
+        status_param = request.query_params.get('status')
+
+        # 2. Iniciamos la consulta base (todas las solicitudes)
+        applications = LoanApplication.objects.all()
+
+        # 3. Aplicamos los filtros solo si el frontend los envió
+        if broker_id:
+            applications = applications.filter(assigned_broker_id=broker_id)
         
-        # 2. Serializamos la lista (muchos registros = many=True)
+        if status_param:
+            applications = applications.filter(status=status_param)
+
+        # 4. Ordenamos por '-created_at' para ver lo más nuevo al inicio
+        applications = applications.order_by('-created_at')
+        
+        # 5. Serializamos la lista y retornamos
         serializer = LoanApplicationSerializer(applications, many=True)
-        
-        # 3. Retornamos la respuesta
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+from django.shortcuts import get_object_or_404
+
+class LoanApplicationDetailView(APIView):
+    """
+    Vista para interactuar con una solicitud específica mediante su ID.
+    Ideal para que el bróker actualice estados sin re-disparar la IA.
+    """
+    def patch(self, request, pk):
+        application = get_object_or_404(LoanApplication, pk=pk)
+        new_status = request.data.get('status')
+        
+        # --- LÓGICA DE DECLINACIÓN Y REASIGNACIÓN ---
+        if new_status == 'assigning_broker' and application.assigned_broker_id:
+            IdentityClient.release_broker(application.assigned_broker_id)
+            rechazados = application.declined_by or []
+            rechazados.append(application.assigned_broker_id)
+            application.declined_by = list(set(rechazados))
+            
+            # 2. Desvinculamos al bróker actual
+            application.assigned_broker_id = None
+            application.status = 'assigning_broker'
+            application.save()
+            
+            asignacion = IdentityClient.assign_broker(
+                application.postal_code, 
+                excluded_brokers=application.declined_by
+            )
+            
+            if asignacion.get('status') == 'success':
+                application.assigned_broker_id = asignacion['data']['broker_id']
+                application.status = 'broker_assigned'
+                application.save()
+                return Response({"message": "Bróker declinado y reasignado con éxito."})
+            else:
+                # Se queda en assigning_broker hasta que haya alguien disponible
+                return Response({"message": "Bróker declinado. En espera de nuevo bróker disponible."})
+        
+        
+        if new_status:
+            # 1. Modificamos el estado DIRECTAMENTE en el modelo esquivando el read_only
+            application.status = new_status
+            application.save()
+            
+            # 2. Usamos el serializador ÚNICAMENTE para formatear la respuesta de salida
+            serializer = LoanApplicationSerializer(application)
+            return Response({
+                "message": "Status actualizado correctamente",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        return Response({"error": "No se envió un status a actualizar"}, status=status.HTTP_400_BAD_REQUEST)
 
 class LoanApplicationCreateView(APIView):
     """

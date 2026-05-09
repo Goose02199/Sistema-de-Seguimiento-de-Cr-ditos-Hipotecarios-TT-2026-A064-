@@ -6,6 +6,68 @@ from .serializers import RiskAssessmentSerializer, BankRecommendationSerializer
 
 logger = logging.getLogger(__name__)
 
+class IdentityClient:
+    """
+    Cliente para comunicarse con el microservicio de Identidad.
+    Maneja la lógica de asignación de brókers.
+    """
+    BASE_URL = os.getenv("IDENTITY_SERVICE_URL", "http://identity-service:8000")
+
+    @classmethod
+    def assign_broker(cls, postal_code, excluded_brokers=None):
+        """
+        Solicita al identity-service la asignación del bróker más apto 
+        basado en el Código Postal y carga de trabajo, excluyendo a los que ya rechazaron.
+        """
+        endpoint = f"{cls.BASE_URL}/brokers/assign/"
+        
+        headers = {
+            "X-Internal-Service-Key": os.getenv('INTERNAL_SERVICE_KEY'),
+            "Content-Type": "application/json"
+        }
+        
+        # 1. Construimos el payload base
+        payload = {"postal_code": str(postal_code)}
+        
+        # 2. Si hay brókers que excluir, los añadimos al JSON
+        if excluded_brokers:
+            payload["excluded_brokers"] = excluded_brokers
+
+        try:
+            logger.info(f"Llamando a identidad para CP {postal_code}. Excluyendo: {excluded_brokers}")
+            
+            response = requests.post(
+                endpoint, 
+                json=payload, 
+                headers=headers, 
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 404:
+                # Caso controlado: No hay brókers disponibles para esa zona
+                return {"status": "no_availability", "message": "No brokers found"}
+            
+            response.raise_for_status()
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error en comunicación con Identity-Service: {e}")
+            return {"status": "error", "message": str(e)}
+
+    @classmethod
+    def release_broker(cls, broker_id):
+        """Notifica al servicio de identidad que un bróker ha liberado una carga."""
+        endpoint = f"{cls.BASE_URL}/brokers/{broker_id}/release/"
+        headers = {"X-Internal-Service-Key": os.getenv('INTERNAL_SERVICE_KEY')}
+        
+        try:
+            res = requests.post(endpoint, headers=headers, timeout=5)
+            return res.status_code == 200
+        except Exception as e:
+            logger.error(f"Error al liberar carga del bróker {broker_id}: {e}")
+            return False
+
 class IntelligenceClient:
     """
     Cliente para comunicarse con el microservicio de Inteligencia.
@@ -115,17 +177,25 @@ class MortgageService:
         else:
             logger.error(f"Error de validación Recomendación (ID: {application.id}): {rec_serializer.errors}")
 
-        # --- FASE 2: TRANSICIÓN DE ESTADOS ---
+        # --- FASE 2: TRANSICIÓN DE ESTADOS ---        
         if risk_success and rec_success:
-            # Si la IA terminó con éxito, pasamos automáticamente a la fase de asignación
             application.status = "assigning_broker"
-            logger.info(f"Solicitud {application.id} procesada por IA. Pasando a asignación.")
+            logger.info(f"IA completada para {application.id}. Iniciando asignación...")
+            
+            # Llamada al identity-service
+            assignment_res = IdentityClient.assign_broker(application.postal_code)
+            
+            if assignment_res.get("status") == "success":
+                application.assigned_broker_id = assignment_res['data']['broker_id']
+                application.status = "broker_assigned"
+                logger.info(f"Solicitud {application.id} asignada al bróker {application.assigned_broker_id}")
+            else:
+                logger.warning(f"No se pudo asignar bróker automáticamente para CP {application.postal_code}")
+        
         elif not risk_serializer.is_valid() or not rec_serializer.is_valid():
             application.status = "invalid_data"
         else:
-            # Error en la comunicación con el microservicio de inteligencia
             application.status = "error_intelligence"
 
-        # Guardamos el resultado final de la orquestación
         application.save()
         return application

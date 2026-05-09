@@ -13,6 +13,10 @@ class CustomUserAdmin(UserAdmin):
     form = CustomUserChangeForm
     model = User
     
+    # --- ESTA ES LA LÍNEA QUE FALTA ---
+    inlines = [BrokerServiceAreaInline] 
+    # ----------------------------------
+
     list_display = ('email', 'full_name', 'role', 'status', 'is_staff')
     list_filter = ('role', 'status', 'is_staff')
     ordering = ('email',)

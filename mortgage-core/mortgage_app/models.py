@@ -3,6 +3,7 @@ import os
 from django.db import models
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
+from django.contrib.postgres.fields import ArrayField
 
 def get_upload_path(instance, filename):
     """
@@ -52,23 +53,22 @@ class CustomerDocument(models.Model):
 
     class Meta:
         verbose_name = "Documento del Cliente"
-        verbose_name = "Documentos del Cliente"
-        # Un mismo trámite no debería tener dos documentos aprobados del mismo tipo
-        unique_together = ['application', 'document_type', 'status'] 
+        verbose_name_plural = "Documentos del Cliente"
 
     def __str__(self):
         return f"{self.get_document_type_display()} - {self.application.full_name}"
 
 class LoanApplication(models.Model):
     # --- IDENTIFICACIÓN Y CONTACTO (Sección 1) ---
-    user_id = models.IntegerField()
+    user_id = models.IntegerField(db_index=True)
+    assigned_broker_id = models.IntegerField('ID del Bróker asignado', null=True, blank=True, db_index=True)
     first_name = models.CharField(max_length=75, null=True, blank=True)
     last_name = models.CharField(max_length=75, null=True, blank=True)   
     full_name = models.CharField(max_length=255, null=True, blank=True) 
     birth_date = models.DateField(null=True, blank=True) 
     rfc_curp = models.CharField(max_length=20, null=True, blank=True) 
     phone = models.CharField(max_length=20, null=True, blank=True) 
-    email = models.EmailField(null=True, blank=True) 
+    email = models.EmailField(null=True, blank=True, db_index=True) 
     address = models.TextField(null=True, blank=True) 
     postal_code = models.CharField(max_length=10, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True) 
@@ -175,11 +175,22 @@ class LoanApplication(models.Model):
         ('waiting_appointment', 'En espera de agendamiento'),
         ('appointment_scheduled', 'Cita agendada'),
         ('finished', 'Proceso finalizado'),
+
+        # errores
+        ('invalid_data', ''),
+        ('error_intelligence', ''),
     ]
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-
+    declined_by = ArrayField(
+        models.IntegerField(), 
+        default=list, 
+        blank=True,
+        help_text="Lista de IDs de brókers que rechazaron la solicitud"
+    )
+    
 
     def __str__(self):
         return f"Solicitud {self.id} - Usuario {self.user_id}"

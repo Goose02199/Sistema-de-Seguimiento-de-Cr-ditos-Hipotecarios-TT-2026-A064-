@@ -10,6 +10,9 @@ from .views import (
     PasswordResetRequestView, 
     PasswordResetConfirmView,
     DeactivateAccountView,
+    AssignBrokerAPIView,
+    BrokerInfoAPIView,
+    ReleaseBrokerLoadAPIView,
 )
 
 urlpatterns = [
@@ -27,4 +30,7 @@ urlpatterns = [
     path('password-reset-request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('deactivate-account/', DeactivateAccountView.as_view(), name='deactivate-account'),
-]
+    path('brokers/assign/', AssignBrokerAPIView.as_view(), name='assign_broker'),
+    path('brokers/<int:pk>/info/', BrokerInfoAPIView.as_view(), name='broker_info'),
+    path('brokers/<int:pk>/release/', ReleaseBrokerLoadAPIView.as_view(), name='release_broker'),
+]   

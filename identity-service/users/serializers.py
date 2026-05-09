@@ -143,3 +143,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if value and len(value) != 10:
             raise serializers.ValidationError("El teléfono debe tener exactamente 10 dígitos.")
         return value
+
+class BrokerAssignmentRequestSerializer(serializers.Serializer):
+    # Validamos que el CP sea obligatorio y cumpla con el largo de tu modelo
+    postal_code = serializers.CharField(
+        max_length=10, 
+        required=True,
+        help_text="Código postal para buscar cobertura de bróker"
+    )
+    excluded_brokers = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False, # No es obligatorio, así sirve para la 1ra asignación
+        default=list,
+        help_text="Lista de IDs de brókers que ya rechazaron la solicitud."
+    )
+
+class BrokerAssignmentResponseSerializer(serializers.Serializer):
+    # Definimos qué datos vamos a devolver al mortgage-core
+    broker_id = serializers.IntegerField()
+    broker_name = serializers.CharField()
+    broker_email = serializers.EmailField()
+    current_load = serializers.IntegerField()

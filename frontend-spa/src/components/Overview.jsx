@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
-import { Check, Clock, AlertCircle, Loader2, ArrowRight, Plus, Minus } from 'lucide-react';
+import { Check, Clock, AlertCircle, Loader2, ArrowRight, Plus, Minus, User, Mail, Phone } from 'lucide-react';
 
 // 1. Orden cronológico de los estados (Happy Path) para calcular el progreso
 const STATUS_ORDER = [
@@ -93,6 +93,7 @@ const Overview = () => {
   const [loading, setLoading] = useState(true);
   const [expandedStages, setExpandedStages] = useState({});
   const navigate = useNavigate();
+  
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -110,6 +111,13 @@ const Overview = () => {
   const currentStatus = application?.status || 'none';
   const isRejected = isStatusRejected(currentStatus);
   const currentIndex = getBaseStatusIndex(currentStatus);
+  const hasBrokerAssigned = currentIndex >= STATUS_ORDER.indexOf('broker_assigned');
+
+  const brokerInfo = application?.broker_info || {
+    full_name: "Asesor Hipotecario",
+    email: "Pendiente de sincronizar...",
+    phone: "Pendiente de sincronizar..."
+  };
 
   // Auto-expandir la etapa activa cuando carga la aplicación
   useEffect(() => {
@@ -238,11 +246,11 @@ const Overview = () => {
                                subStatus === 'error' ? <AlertCircle size={16} /> :
                                <span className="font-bold text-xs">{subIdx + 1}</span>}
                             </div>
-                            <div className={`absolute -bottom-10 text-[10px] whitespace-nowrap text-center transition-colors 
-                              ${subStatus === 'active' ? 'text-[#1A4E5E] font-bold' : 'text-slate-400'}`}>
-                              {sub.label}
+                            <div className={`absolute top-12 w-20 lg:w-24 text-[10px] leading-tight text-center transition-colors 
+                                ${subStatus === 'active' ? 'text-[#1A4E5E] font-bold' : 'text-slate-400'}`}>
+                                {sub.label}
+                              </div>
                             </div>
-                          </div>
                         </React.Fragment>
                       )
                     })}
@@ -257,25 +265,52 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Info Card */}
-      <div className={`p-8 rounded-2xl border-2 flex flex-col md:flex-row items-center gap-6 transition-all
-        ${isRejected ? 'bg-rose-50 border-rose-100' : 'bg-[#1A4E5E]/5 border-[#1A4E5E]/10'}`}>
-        <div className={`p-4 rounded-2xl shadow-lg ${isRejected ? 'bg-rose-500' : 'bg-[#1A4E5E]'} text-white`}>
-          {isRejected ? <AlertCircle size={32} /> : <Clock size={32} />}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* --- NUEVA CARTILLA DEL BRÓKER (Se muestra condicionalmente) --- */}
+        {hasBrokerAssigned && (
+          <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center animate-in slide-in-from-bottom-4 duration-500">
+            <div className="w-20 h-20 bg-indigo-50 text-[#1A4E5E] rounded-full flex items-center justify-center mb-4 shadow-inner border border-indigo-100">
+              <User size={40} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">{brokerInfo.full_name}</h3>
+            <p className="text-sm text-[#1A4E5E] font-semibold mb-4 bg-[#1A4E5E]/10 px-3 py-1 rounded-full">Tu Bróker Asignado</p>
+            
+            <div className="w-full space-y-3 mt-2 text-left">
+              <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <Mail size={18} className="text-slate-400" />
+                <span className="text-sm font-medium truncate" title={brokerInfo.email}>{brokerInfo.email}</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <Phone size={18} className="text-slate-400" />
+                <span className="text-sm font-medium">{brokerInfo.phone || 'No registrado'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- INFO CARD ADAPTADA --- */}
+        {/* Si hay bróker, ocupa 2 columnas, si no, ocupa las 3 */}
+        <div className={`p-8 rounded-2xl border-2 flex flex-col md:flex-row items-center gap-6 transition-all ${hasBrokerAssigned ? 'lg:col-span-2' : 'lg:col-span-3'}
+          ${isRejected ? 'bg-rose-50 border-rose-100' : 'bg-[#1A4E5E]/5 border-[#1A4E5E]/10'}`}>
+          <div className={`p-4 rounded-2xl shadow-lg ${isRejected ? 'bg-rose-500' : 'bg-[#1A4E5E]'} text-white`}>
+            {isRejected ? <AlertCircle size={32} /> : <Clock size={32} />}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-slate-900">
+              {isRejected ? "Atención Requerida" : "Información del Paso Actual"}
+            </h3>
+            <p className="text-slate-600 mt-1">
+              Tu solicitud se encuentra en el estado: <span className="font-bold text-[#1A4E5E] uppercase">{currentStatus.replace(/_/g, ' ')}</span>.
+            </p>
+          </div>
+          <button 
+            onClick={() => navigate('/solicitud')}
+            className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap">
+            Gestionar Trámite <ArrowRight size={20} />
+          </button>
         </div>
-        <div className="flex-1">
-          <h3 className="text-xl font-bold text-slate-900">
-            {isRejected ? "Atención Requerida" : "Información del Paso Actual"}
-          </h3>
-          <p className="text-slate-600 mt-1">
-            Tu solicitud se encuentra en el estado: <span className="font-bold text-[#1A4E5E] uppercase">{currentStatus.replace(/_/g, ' ')}</span>.
-          </p>
-        </div>
-        <button 
-          onClick={() => navigate('/solicitud')}
-          className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap">
-          Gestionar Trámite <ArrowRight size={20} />
-        </button>
+
       </div>
     </div>
   );

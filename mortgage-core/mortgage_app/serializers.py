@@ -1,15 +1,51 @@
 from rest_framework import serializers
 from .models import LoanApplication
-
+import requests
+import os
 from rest_framework import serializers
 from .models import LoanApplication
 
 class LoanApplicationSerializer(serializers.ModelSerializer):
+    broker_info = serializers.SerializerMethodField()
     class Meta:
         model = LoanApplication
         fields = '__all__'
         read_only_fields = ('risk_score', 'risk_label', 'prob_low', 'prob_medium', 'prob_high', 'recommendations_data', 'status', 'created_at')
 
+    def get_broker_info(self, obj):
+        if not obj.assigned_broker_id:
+            return None
+            
+        try:
+            base_url = os.getenv("IDENTITY_SERVICE_URL", "http://identity-service:8000")
+            internal_key = os.getenv("INTERNAL_SERVICE_KEY")
+            
+            # ¡AQUÍ ESTÁ LA CLAVE! Enviamos el secreto al microservicio de identidad
+            headers = {
+                "X-Internal-Service-Key": internal_key
+            }
+            
+            endpoint = f"{base_url}/brokers/{obj.assigned_broker_id}/info/"
+            res = requests.get(endpoint, headers=headers, timeout=3)
+            
+            if res.status_code == 200:
+                user_data = res.json()
+                return {
+                    "full_name": user_data.get("full_name"),
+                    "email": user_data.get("email"),
+                    "phone": user_data.get("phone")
+                }
+        except Exception as e:
+            # En producción, podrías loguear este error
+            print(f"Error consultando info del bróker: {e}")
+            pass
+            
+        return {
+            "full_name": "Bróker Asignado",
+            "email": "Contacto no disponible temporalmente",
+            "phone": ""
+        }
+        
 class BankRecommendationSerializer(serializers.Serializer):
     """
     Valida los datos de entrada para el modelo de Recomendación ML.

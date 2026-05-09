@@ -12,24 +12,36 @@ from .serializers import (
     PasswordChangeSerializer,
     ResendActivationSerializer,
     UserProfileSerializer,
-    BrokerRegistrationSerializer
+    BrokerRegistrationSerializer,
+    BrokerAssignmentRequestSerializer, 
+    BrokerAssignmentResponseSerializer
 )
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .tasks import send_activation_email, send_duplicate_registration_notification, send_password_reset_email
 from django.contrib.auth import get_user_model
-from .utils import verify_recaptcha
+from .utils import verify_recaptcha, CDMX_ALCALDIAS
 from django.core.cache import cache # Django usa Redis a través de esto
 import logging
 from .utils import log_audit_event
 from django.utils import timezone
+from django.db import transaction
+from django.db.models import F
+import os
+from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 
 # Umbral de intentos antes de pedir captcha
 logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
+
+class IsInternalService(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Compara un header personalizado con un secreto en tu .env
+        api_key = request.headers.get('X-Internal-Service-Key')
+        return api_key == os.getenv('INTERNAL_SERVICE_KEY')
 
 # Vista de Activación (RF2)
 @extend_schema(auth=[], description="Confirma el token enviado por correo para activar la cuenta.")
@@ -356,3 +368,91 @@ class AdminRegisterBrokerView(APIView):
             }, status=status.HTTP_201_CREATED)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class AssignBrokerAPIView(APIView):
+    
+    permission_classes = [IsInternalService]
+
+    @transaction.atomic
+    def post(self, request):
+        input_serializer = BrokerAssignmentRequestSerializer(data=request.data)
+        if not input_serializer.is_valid():
+            return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        full_postal_code = input_serializer.validated_data['postal_code']
+        excluded_brokers = input_serializer.validated_data.get('excluded_brokers', [])
+        prefix = full_postal_code[:2]
+
+        if prefix not in CDMX_ALCALDIAS:
+            return Response({
+                "status": "error", 
+                "message": "Servicio exclusivo para CDMX (CPs de 01000 a 16999)."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        
+        broker_query = User.objects.select_for_update().filter(
+            role='BROKER',
+            status='Activo',
+            is_active_for_assignments=True,
+            service_areas__alcaldia_prefix=prefix,
+            current_load__lt=F('max_load')
+        )
+
+        # 4. Si hay brókers que excluir, los sacamos de la consulta
+        if excluded_brokers:
+            broker_query = broker_query.exclude(id__in=excluded_brokers)
+
+        # 5. Ejecutamos la búsqueda del bróker más desocupado
+        broker = broker_query.order_by('current_load').first()
+
+        if broker:
+            # 3. Actualizamos carga
+            broker.current_load += 1
+            broker.save()
+            
+            # 4. Formateamos la salida con el Serializer de respuesta
+            output_data = {
+                "broker_id": broker.id,
+                "broker_name": broker.full_name,
+                "broker_email": broker.email,
+                "current_load": broker.current_load
+            }
+            output_serializer = BrokerAssignmentResponseSerializer(output_data)
+            
+            return Response({
+                "status": "success",
+                "data": output_serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        return Response({
+            "status": "error",
+            "message": f"No hay brókers disponibles para el CP {full_postal_code}"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+class ReleaseBrokerLoadAPIView(APIView):
+    permission_classes = [IsInternalService]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        broker = get_object_or_404(User, pk=pk, role='BROKER')
+        
+        # Decrementamos la carga asegurándonos de no bajar de cero
+        if broker.current_load > 0:
+            broker.current_load = F('current_load') - 1
+            broker.save()
+            
+        return Response({"status": "success", "new_load": broker.current_load})
+
+class BrokerInfoAPIView(APIView):
+    # Aplicamos el permiso S2S (Service to Service)
+    permission_classes = [IsInternalService]
+
+    def get(self, request, pk):
+        # Buscamos al usuario, asegurándonos de que sea un bróker
+        broker = get_object_or_404(User, pk=pk, role='BROKER')
+        
+        return Response({
+            "full_name": broker.full_name,
+            "email": broker.email,
+            "phone": broker.phone
+        }, status=status.HTTP_200_OK)
