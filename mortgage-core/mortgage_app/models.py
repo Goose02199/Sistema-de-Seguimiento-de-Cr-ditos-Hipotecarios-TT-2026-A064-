@@ -198,6 +198,42 @@ class LoanApplication(models.Model):
         help_text="Lista de IDs de brókers que rechazaron la solicitud"
     )
     
+    def check_and_update_document_status(self):
+        """
+        Evalúa el estado de todos los documentos y actualiza el Macro-Estatus 
+        del trámite de forma automática.
+        """
+        # Obtenemos todos los documentos asociados a este trámite
+        docs = self.documents.all()
+        
+        # Si aún no hay documentos creados, no hacemos nada
+        if not docs.exists():
+            return
+
+        # Obtenemos un "set" (conjunto único) de todos los estatus actuales
+        # Ej: {'approved', 'under_review'} o {'requested'}
+        statuses = set(docs.values_list('status', flat=True))
+
+        # REGLA 1: Si hay aunque sea UN documento que el cliente deba subir o corregir
+        if 'requested' in statuses or 'rejected' in statuses:
+            new_macro_status = 'waiting_docs'
+
+        # REGLA 2: Si el cliente ya subió todo, y hay al menos uno esperando revisión del bróker
+        elif 'under_review' in statuses:
+            new_macro_status = 'docs_review'
+
+        # REGLA 3: Si el único estatus que existe en la lista es 'approved' (Todos aprobados)
+        elif statuses == {'approved'}:
+            new_macro_status = 'docs_approved'
+            
+        else:
+            return  # Falla de seguridad por si hay un estado no contemplado
+
+        # Solo hacemos hit a la base de datos si el estatus realmente cambió
+        if self.status != new_macro_status:
+            self.status = new_macro_status
+            # Usamos update_fields para mayor rendimiento, solo guardamos ese campo
+            self.save(update_fields=['status'])
 
     def __str__(self):
         return f"Solicitud {self.id} - Usuario {self.user_id}"

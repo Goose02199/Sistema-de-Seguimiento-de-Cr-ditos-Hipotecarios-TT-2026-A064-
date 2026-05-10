@@ -158,10 +158,7 @@ class ApplicationDocumentListView(APIView):
             )
             created_docs.append(doc)
         
-        # ACTUALIZAMOS MACRO-ESTATUS: Si el bróker pide documentos, pasamos a waiting_docs
-        if created_docs and application.status != 'waiting_docs':
-            application.status = 'waiting_docs'
-            application.save()
+        application.check_and_update_document_status()
 
         serializer = CustomerDocumentSerializer(created_docs, many=True)
         return Response({
@@ -217,23 +214,34 @@ class DocumentDetailView(APIView):
 
             # Si pasa las 3 pruebas de seguridad, procedemos a encriptar
             try:
-                # 1. Leemos los bytes originales
+            
+                # --- LA INTERVENCIÓN CRIPTOGRÁFICA ---
+                # 1. Leemos los bytes originales del PDF
                 raw_data = uploaded_file.read() 
                 
-                # 2. Los encriptamos
+                # 2. Los encriptamos en la RAM
                 encrypted_data = encrypt_file_data(raw_data) 
                 
-                # 3. Creamos el archivo virtual
+                # 3. Creamos un "archivo falso" en memoria con los datos encriptados
+                # Mantenemos el nombre original para que la extensión siga siendo .pdf o .jpg
                 encrypted_file = ContentFile(encrypted_data, name=uploaded_file.name)
                 
-                # Guardamos
+                # Guardamos la versión encriptada en el modelo
                 document.file = encrypted_file
+                
                 document.status = 'under_review'
                 document.feedback = '' 
                 document.save()
                 
+                document.application.check_and_update_document_status()
+
                 serializer = CustomerDocumentSerializer(document)
-                return Response({"message": "Archivo cargado y encriptado con éxito", "data": serializer.data})
+                return Response({"message": "Archivo cargado con éxito", "data": serializer.data})
+
+            except Exception as e:
+                import logging
+                logging.error(f"Error encriptando archivo: {str(e)}")
+                return Response({"error": "Hubo un problema al procesar la seguridad del archivo."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # --- CASO 2: EL BRÓKER APRUEBA O RECHAZA ---
         if 'status' in request.data:
@@ -253,6 +261,8 @@ class DocumentDetailView(APIView):
                 document.feedback = '' # Si aprueba, limpiamos por si acaso
                 
             document.save()
+
+            document.application.check_and_update_document_status()
             
             serializer = CustomerDocumentSerializer(document)
             return Response({"message": f"Documento {new_status}", "data": serializer.data})
