@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import LoanApplication
+from .models import LoanApplication, CustomerDocument
 import requests
 import os
 from rest_framework import serializers
@@ -46,6 +46,15 @@ class LoanApplicationSerializer(serializers.ModelSerializer):
             "phone": ""
         }
         
+class CustomerDocumentSerializer(serializers.ModelSerializer):
+    # Esto le manda al frontend el nombre bonito del documento
+    document_name = serializers.CharField(source='get_document_type_display', read_only=True)
+
+    class Meta:
+        model = CustomerDocument
+        fields = ['id', 'document_type', 'document_name', 'file', 'status', 'feedback', 'uploaded_at']
+        read_only_fields = ['id', 'uploaded_at']
+
 class BankRecommendationSerializer(serializers.Serializer):
     """
     Valida los datos de entrada para el modelo de Recomendación ML.

@@ -1,9 +1,16 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import LoanApplication
+from .models import LoanApplication, CustomerDocument
+from django.shortcuts import get_object_or_404
 from .services import IntelligenceClient, MortgageService, IdentityClient
 from .serializers import BankRecommendationSerializer, RiskAssessmentSerializer, LoanApplicationSerializer
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from .serializers import CustomerDocumentSerializer
+from django.http import FileResponse, Http404, HttpResponse
+from django.core.files.base import ContentFile
+from .utils.crypto import encrypt_file_data, decrypt_file_data
+import mimetypes
 
 class RiskAssessmentView(APIView):
     """
@@ -21,6 +28,7 @@ class RiskAssessmentView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class BankRecommendationView(APIView):
     """
     Endpoint para obtener el Top 5 de bancos recomendados mediante ML.
@@ -41,8 +49,6 @@ class BankRecommendationView(APIView):
         
         # 3. Si no son válidos, DRF devuelve automáticamente los errores (400)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# mortgage_core/views.py
 
 class LoanApplicationListView(APIView):
     """
@@ -70,8 +76,6 @@ class LoanApplicationListView(APIView):
         # 5. Serializamos la lista y retornamos
         serializer = LoanApplicationSerializer(applications, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-from django.shortcuts import get_object_or_404
 
 class LoanApplicationDetailView(APIView):
     """
@@ -128,6 +132,169 @@ class LoanApplicationDetailView(APIView):
             }, status=status.HTTP_200_OK)
             
         return Response({"error": "No se envió un status a actualizar"}, status=status.HTTP_400_BAD_REQUEST)
+
+class ApplicationDocumentListView(APIView):
+    """
+    GET: Lista todos los documentos de un trámite específico.
+    POST: El bróker solicita nuevos documentos (crea placeholders).
+    """
+    def get(self, request, application_id):
+        application = get_object_or_404(LoanApplication, id=application_id)
+        documents = application.documents.all()
+        serializer = CustomerDocumentSerializer(documents, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, application_id):
+        application = get_object_or_404(LoanApplication, id=application_id)
+        document_types = request.data.get('document_types', []) # Ej: ['identificacion', 'ingresos']
+
+        created_docs = []
+        for doc_type in document_types:
+            # Usamos get_or_create para no duplicar si el bróker da doble clic
+            doc, created = CustomerDocument.objects.get_or_create(
+                application=application,
+                document_type=doc_type,
+                defaults={'status': 'requested'}
+            )
+            created_docs.append(doc)
+        
+        # ACTUALIZAMOS MACRO-ESTATUS: Si el bróker pide documentos, pasamos a waiting_docs
+        if created_docs and application.status != 'waiting_docs':
+            application.status = 'waiting_docs'
+            application.save()
+
+        serializer = CustomerDocumentSerializer(created_docs, many=True)
+        return Response({
+            "message": "Documentos solicitados correctamente",
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+
+class DocumentDetailView(APIView):
+    """
+    PATCH: Permite al cliente subir el archivo o al bróker revisarlo.
+    """
+    # IMPORTANTE: Necesitamos estos parsers para poder recibir archivos físicos
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    # Definimos los verdaderos formatos permitidos
+    ALLOWED_MIME_TYPES = [
+        'application/pdf', 
+        'image/jpeg', 
+        'image/png'
+    ]
+    # Límite de 5MB por archivo (protección contra saturación de disco)
+    MAX_FILE_SIZE = 5 * 1024 * 1024
+
+    def patch(self, request, pk):
+        document = get_object_or_404(CustomerDocument, pk=pk)
+
+        # --- CASO 1: EL CLIENTE SUBE UN ARCHIVO ---
+        if 'file' in request.FILES:
+            uploaded_file = request.FILES['file']
+            
+            # --- CAPA 1: Validación de Extensión Exacta ---
+            # Extraemos la extensión real del nombre del archivo
+            ext = uploaded_file.name.split('.')[-1].lower()
+            allowed_extensions = ['pdf', 'jpg', 'jpeg', 'png']
+            
+            if ext not in allowed_extensions:
+                return Response({
+                    "error": f"Extensión .{ext} no permitida. Por seguridad, solo se aceptan PDF, JPG o PNG."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # --- CAPA 2: Validación de MIME Type (Cabecera HTTP) ---
+            if uploaded_file.content_type not in self.ALLOWED_MIME_TYPES:
+                return Response({
+                    "error": f"El formato interno ({uploaded_file.content_type}) no es válido."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # --- CAPA 3: Validación de Tamaño (Evitar DDoS por saturación de disco) ---
+            if uploaded_file.size > self.MAX_FILE_SIZE:
+                return Response({
+                    "error": "El archivo es demasiado pesado. El máximo permitido es 5MB."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Si pasa las 3 pruebas de seguridad, procedemos a encriptar
+            try:
+                # 1. Leemos los bytes originales
+                raw_data = uploaded_file.read() 
+                
+                # 2. Los encriptamos
+                encrypted_data = encrypt_file_data(raw_data) 
+                
+                # 3. Creamos el archivo virtual
+                encrypted_file = ContentFile(encrypted_data, name=uploaded_file.name)
+                
+                # Guardamos
+                document.file = encrypted_file
+                document.status = 'under_review'
+                document.feedback = '' 
+                document.save()
+                
+                serializer = CustomerDocumentSerializer(document)
+                return Response({"message": "Archivo cargado y encriptado con éxito", "data": serializer.data})
+
+        # --- CASO 2: EL BRÓKER APRUEBA O RECHAZA ---
+        if 'status' in request.data:
+            new_status = request.data.get('status')
+            
+            if new_status not in ['approved', 'rejected']:
+                return Response({"error": "Status inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
+            document.status = new_status
+            if new_status == 'rejected':
+                # Si rechaza, exigimos que haya escrito por qué
+                feedback = request.data.get('feedback')
+                if not feedback:
+                    return Response({"error": "Debe proporcionar un motivo de rechazo"}, status=status.HTTP_400_BAD_REQUEST)
+                document.feedback = feedback
+            else:
+                document.feedback = '' # Si aprueba, limpiamos por si acaso
+                
+            document.save()
+            
+            serializer = CustomerDocumentSerializer(document)
+            return Response({"message": f"Documento {new_status}", "data": serializer.data})
+
+        return Response({"error": "No se envió archivo ni status"}, status=status.HTTP_400_BAD_REQUEST)
+
+class SecureDocumentView(APIView):
+    def get(self, request, pk):
+        document = get_object_or_404(CustomerDocument, pk=pk)
+
+        if not document.file or not document.file.name:
+            raise Http404("El documento aún no ha sido cargado.")
+
+        try:
+            # 1. Averiguamos el formato real (ej. application/pdf)
+            content_type, _ = mimetypes.guess_type(document.file.name)
+            if not content_type:
+                content_type = 'application/octet-stream'
+
+            # 2. Leemos la "sopa de letras" encriptada del disco
+            with document.file.open('rb') as f:
+                encrypted_data = f.read()
+
+            # 3. Desencriptamos al vuelo en la memoria (RAM)
+            decrypted_data = decrypt_file_data(encrypted_data)
+
+            # 4. Usamos HttpResponse en lugar de FileResponse porque estamos 
+            # mandando bytes desde la RAM, no un archivo directo del disco.
+            response = HttpResponse(decrypted_data, content_type=content_type)
+            response['Content-Disposition'] = f'inline; filename="{document.id}_{document.document_type}"'
+            
+            return response
+            
+        except FileNotFoundError:
+            raise Http404("El archivo físico no fue encontrado.")
+        except Exception as e: 
+            # Imprimimos el error real en la consola de Docker
+            import logging
+            logging.error(f"ERROR CRÍTICO DESENCRIPTANDO: {str(e)} - Tipo: {type(e)}")
+            
+            # Y se lo mandamos al frontend para que lo veas en la pestaña Network
+            return HttpResponse(f"Error interno del servidor: {type(e).__name__} - {str(e)}", status=500)
 
 class LoanApplicationCreateView(APIView):
     """

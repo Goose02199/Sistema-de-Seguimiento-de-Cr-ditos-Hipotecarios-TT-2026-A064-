@@ -15,6 +15,7 @@ import RoleGuard from './components/RoleGuard';
 import BrokerPortfolio from './components/Broker/BrokerPortfolio';
 import BrokerOverview from './components/Broker/BrokerOverview';
 import ApplicationDetail from './components/Broker/ApplicationDetail';
+import ClientDocumentManager from './components/ClientDocumentManager'; // o la ruta correcta
 
 
 import MortgageStepper from './components/MortgageApplication/MortgageStepper';
@@ -130,6 +131,15 @@ function App() {
             element={
               <RoleGuard allowedRoles={['BROKER']}>
                 <ApplicationDetail />
+              </RoleGuard>
+            } 
+          />
+
+          <Route 
+            path="documentos" 
+            element={
+              <RoleGuard allowedRoles={['CLIENTE']}>
+                <ClientDocumentManager />
               </RoleGuard>
             } 
           />

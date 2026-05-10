@@ -8,6 +8,7 @@ import {
   ShieldCheck, Landmark, Tags, FlaskConical
 } from 'lucide-react';
 import AICalculatorTab from './AICalculatorTab';
+import DocumentManager from './DocumentManager';
 import api from '../../api/api';
 
 const ApplicationDetail = () => {

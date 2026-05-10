@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
-import { Check, Clock, AlertCircle, Loader2, ArrowRight, Plus, Minus, User, Mail, Phone } from 'lucide-react';
+import { Check, Clock, AlertCircle, Loader2, UploadCloud, ArrowRight, Plus, Minus, User, Mail, Phone } from 'lucide-react';
 
 // 1. Orden cronológico de los estados (Happy Path) para calcular el progreso
 const STATUS_ORDER = [
@@ -290,12 +290,13 @@ const Overview = () => {
         )}
 
         {/* --- INFO CARD ADAPTADA --- */}
-        {/* Si hay bróker, ocupa 2 columnas, si no, ocupa las 3 */}
         <div className={`p-8 rounded-2xl border-2 flex flex-col md:flex-row items-center gap-6 transition-all ${hasBrokerAssigned ? 'lg:col-span-2' : 'lg:col-span-3'}
           ${isRejected ? 'bg-rose-50 border-rose-100' : 'bg-[#1A4E5E]/5 border-[#1A4E5E]/10'}`}>
+
           <div className={`p-4 rounded-2xl shadow-lg ${isRejected ? 'bg-rose-500' : 'bg-[#1A4E5E]'} text-white`}>
             {isRejected ? <AlertCircle size={32} /> : <Clock size={32} />}
           </div>
+
           <div className="flex-1">
             <h3 className="text-xl font-bold text-slate-900">
               {isRejected ? "Atención Requerida" : "Información del Paso Actual"}
@@ -304,11 +305,23 @@ const Overview = () => {
               Tu solicitud se encuentra en el estado: <span className="font-bold text-[#1A4E5E] uppercase">{currentStatus.replace(/_/g, ' ')}</span>.
             </p>
           </div>
-          <button 
-            onClick={() => navigate('/solicitud')}
-            className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap">
-            Gestionar Trámite <ArrowRight size={20} />
-          </button>
+
+          {/* LOGICA INTELIGENTE DEL BOTÓN */}
+          {['waiting_docs', 'docs_review', 'docs_approved'].includes(currentStatus) ? (
+            <button 
+              onClick={() => navigate('/documentos')}
+              className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap"
+            >
+              <UploadCloud size={20} /> Subir Documentos
+            </button>
+          ) : (
+            <button 
+              onClick={() => navigate('/solicitud')}
+              className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap"
+            >
+              Gestionar Trámite <ArrowRight size={20} />
+            </button>
+          )}
         </div>
 
       </div>
