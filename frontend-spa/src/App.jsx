@@ -14,6 +14,7 @@ import PasswordResetConfirm from './components/PasswordResetConfirm';
 import RoleGuard from './components/RoleGuard';
 import BrokerPortfolio from './components/Broker/BrokerPortfolio';
 import BrokerOverview from './components/Broker/BrokerOverview';
+import ApplicationDetail from './components/Broker/ApplicationDetail';
 
 
 import MortgageStepper from './components/MortgageApplication/MortgageStepper';
@@ -120,6 +121,15 @@ function App() {
             element={
               <RoleGuard allowedRoles={['BROKER']}>
                 <BrokerPortfolio />
+              </RoleGuard>
+            } 
+          />
+
+          <Route 
+            path="tramite/:id" 
+            element={
+              <RoleGuard allowedRoles={['BROKER']}>
+                <ApplicationDetail />
               </RoleGuard>
             } 
           />

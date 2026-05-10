@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, User, Briefcase, DollarSign, 
   History, Cpu, PieChart, MapPin, Gavel, 
@@ -7,9 +8,30 @@ import {
   ShieldCheck, Landmark, Tags, FlaskConical
 } from 'lucide-react';
 import AICalculatorTab from './AICalculatorTab';
+import api from '../../api/api';
 
-const ApplicationDetail = ({ app, onBack }) => {
+const ApplicationDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  
+  const [app, setApp] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('expediente');
+
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get(`/mortgage/applications/${id}/`);
+        setApp(response.data);
+      } catch (error) {
+        console.error("Error al cargar los detalles:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [id]);
 
   const formatCurrency = (value) => 
     new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value || 0);
@@ -19,12 +41,27 @@ const ApplicationDetail = ({ app, onBack }) => {
   const verificationLabels = { 'not_verified': 'No Verificado', 'source_verified': 'Fuente Verificada', 'verified': 'Verificado' };
   const financingLabels = { 'bancario': 'Bancario Puro', 'infonavit': 'Cofinavit (INFONAVIT)', 'fovissste': 'Fovissste para todos' };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <div className="animate-spin text-[#1A4E5E] mb-4">
+          <Clock size={40} />
+        </div>
+        <p className="text-slate-500 font-medium">Cargando expediente...</p>
+      </div>
+    );
+  }
+
+  if (!app) {
+    return <div className="p-8 text-center text-rose-500 font-bold">No se encontró el trámite o no tienes permisos.</div>;
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Cabecera Superior */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-gray-500">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-gray-500">
             <ArrowLeft size={24} />
           </button>
           <div>
@@ -36,17 +73,12 @@ const ApplicationDetail = ({ app, onBack }) => {
           </div>
         </div>
         
-        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200">
-          <span className="text-[10px] font-bold text-gray-400 uppercase ml-2">Estatus:</span>
-          <select 
-            defaultValue={app.status}
-            className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-sm font-bold text-[#1A4E5E] outline-none shadow-sm"
-          >
-            <option value="processed">PROCESADO (IA)</option>
-            <option value="under_review">EN REVISIÓN</option>
-            <option value="approved">APROBADO</option>
-            <option value="rejected">RECHAZADO</option>
-          </select>
+        {/* Estatus estático sin select */}
+        <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+          <span className="text-[10px] font-bold text-gray-400 uppercase">Estatus actual:</span>
+          <span className="text-sm font-black text-[#1A4E5E] uppercase tracking-wider">
+            {app.status ? app.status.replace(/_/g, ' ') : 'DESCONOCIDO'}
+          </span>
         </div>
       </div>
 

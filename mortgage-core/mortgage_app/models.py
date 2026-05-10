@@ -7,13 +7,14 @@ from django.contrib.postgres.fields import ArrayField
 
 def get_upload_path(instance, filename):
     """
-    Ofuscación de ruta: Los archivos se guardan con un UUID 
-    para evitar ataques de enumeración.
-    Ruta: documents/<loan_id>/<doc_type>_<uuid>.<ext>
+    Ofuscación de ruta con UUID.
+    Ruta: private_documents/app_<id>/<doc_type>_<uuid>.<ext>
     """
-    ext = filename.split('.')[-1]
-    filename = f"{instance.document_type}_{uuid.uuid4()}.{ext}"
-    return os.path.join(f'documents/app_{instance.application.id}', filename)
+    ext = filename.split('.')[-1].lower()
+    # Generamos un UUID nuevo para el nombre del archivo
+    safe_filename = f"{instance.document_type}_{uuid.uuid4().hex}.{ext}"
+    # NOTA: Sugiero cambiar la carpeta a algo que denote que es privado
+    return os.path.join(f'private_documents/app_{instance.application.id}', safe_filename)
 
 class CustomerDocument(models.Model):
     DOCUMENT_TYPES = [
@@ -25,27 +26,31 @@ class CustomerDocument(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ('pending', 'Pendiente'),
-        ('under_review', 'En Revisión'),
+        ('requested', 'Requerido'),    # <--- NUEVO: El broker lo pide, pero aún no hay archivo
+        ('under_review', 'En Revisión'), # <--- El cliente lo subió, falta que el broker lo vea
         ('approved', 'Aprobado'),
         ('rejected', 'Rechazado'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     application = models.ForeignKey(
         'LoanApplication', 
         on_delete=models.CASCADE, 
         related_name='documents'
     )
+    
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES)
     
-    # Seguridad: Validamos extensiones para evitar ejecución de scripts (XSS/Malware)
+    # MODIFICACIÓN: Permitimos null y blank para poder crear el "placeholder"
     file = models.FileField(
         upload_to=get_upload_path,
-        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'jpg', 'jpeg', 'png'])]
+        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'jpg', 'jpeg', 'png'])],
+        null=True, 
+        blank=True
     )
     
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='requested')
     feedback = models.TextField(blank=True, null=True, help_text="Razón del rechazo")
     
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -54,9 +59,11 @@ class CustomerDocument(models.Model):
     class Meta:
         verbose_name = "Documento del Cliente"
         verbose_name_plural = "Documentos del Cliente"
+        # Regla de negocio: No pedir el mismo documento dos veces para el mismo trámite
+        unique_together = ('application', 'document_type') 
 
     def __str__(self):
-        return f"{self.get_document_type_display()} - {self.application.full_name}"
+        return f"{self.get_document_type_display()} - {self.application.id} ({self.status})"
 
 class LoanApplication(models.Model):
     # --- IDENTIFICACIÓN Y CONTACTO (Sección 1) ---

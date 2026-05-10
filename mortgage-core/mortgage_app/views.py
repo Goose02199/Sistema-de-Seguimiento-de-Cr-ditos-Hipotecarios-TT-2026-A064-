@@ -78,6 +78,12 @@ class LoanApplicationDetailView(APIView):
     Vista para interactuar con una solicitud específica mediante su ID.
     Ideal para que el bróker actualice estados sin re-disparar la IA.
     """
+
+    def get(self, request, pk):
+        application = get_object_or_404(LoanApplication, pk=pk)
+        serializer = LoanApplicationSerializer(application)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def patch(self, request, pk):
         application = get_object_or_404(LoanApplication, pk=pk)
         new_status = request.data.get('status')

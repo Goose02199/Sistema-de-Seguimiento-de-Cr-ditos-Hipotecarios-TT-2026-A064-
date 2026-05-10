@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState} from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/api';
 import { 
   FileText, 
@@ -7,7 +8,7 @@ import {
   Loader2, 
   Clock, 
   MapPin, 
-  AlertCircle 
+  AlertCircle , Briefcase, ArrowRight, ArrowLeft
 } from 'lucide-react';
 
 const BrokerOverview = () => {
@@ -15,32 +16,39 @@ const BrokerOverview = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null); // Para el loading de los botones
   const [error, setError] = useState(null);
-
-  // 1. Obtener las solicitudes asignadas a este bróker que están pendientes de revisión
-  useEffect(() => {
-    fetchPendingApplications();
-  }, []);
-
-  const fetchPendingApplications = async () => {
+  const navigate = useNavigate();
+  const [activeApplications, setActiveApplications] = useState([]);
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
-      // Obtenemos el ID del bróker logueado
       const userRes = await api.get('/auth/me/');
       const brokerId = userRes.data.id;
 
-      // Consultamos las solicitudes asignadas a él con el status exacto 'broker_assigned'
-      const appRes = await api.get(`/mortgage/portfolio/?assigned_broker_id=${brokerId}&status=broker_assigned`);
+      // Pedimos TODAS las del bróker (sin filtrar por status en la URL)
+      const appRes = await api.get(`/mortgage/portfolio/?assigned_broker_id=${brokerId}`);
+      const allApps = Array.isArray(appRes.data) ? appRes.data : appRes.data.results || [];
+
+      // 1. Filtramos las que son "Nuevas Asignaciones"
+      const pending = allApps.filter(app => app.status === 'broker_assigned');
       
-      // Ajusta esto dependiendo de cómo devuelva tu backend (si es paginado será appRes.data.results)
-      setPendingApplications(Array.isArray(appRes.data) ? appRes.data : appRes.data.results || []);
+      // 2. Filtramos las que ya están en curso (Aceptadas)
+      const active = allApps.filter(app => app.status !== 'broker_assigned' && app.status !== 'assigning_broker');
+
+      setPendingApplications(pending);
+      setActiveApplications(active.slice(0, 3)); // Solo tomamos las 3 más recientes para el resumen
+
     } catch (err) {
       console.error("Error obteniendo solicitudes:", err);
-      setError("No se pudieron cargar las solicitudes pendientes.");
+      setError("No se pudieron cargar los datos del panel.");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   // 2. Lógica para Aceptar la Solicitud
   const handleAccept = async (applicationId) => {
@@ -170,6 +178,61 @@ const BrokerOverview = () => {
           ))}
         </div>
       )}
+
+      {/* --- NUEVA SECCIÓN: TRÁMITES EN CURSO (RESUMEN) --- */}
+      <div className="mt-16 mb-8 animate-in slide-in-from-bottom-4 duration-700 delay-150">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Briefcase className="text-[#1A4E5E]" size={24} /> Trámites en Curso
+            </h2>
+            <p className="text-slate-500 text-sm mt-1">Un vistazo a tus casos activos más recientes.</p>
+          </div>
+          <button
+            onClick={() => navigate('/cartera')}
+            className="text-[#1A4E5E] font-bold hover:text-[#133a46] flex items-center gap-1 transition-all hover:gap-2 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 shadow-sm"
+          >
+            Ver toda mi cartera <ArrowRight size={18} />
+          </button>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+          {activeApplications.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">
+              Aún no tienes trámites en curso. Acepta una nueva asignación para comenzar.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {activeApplications.map((app) => (
+                <div key={app.id} className="p-5 hover:bg-slate-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-400 group-hover:bg-[#1A4E5E] group-hover:text-white transition-colors">
+                      id: {app.id}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800">{app.full_name}</h4>
+                      <p className="text-xs text-slate-500 font-medium">${new Intl.NumberFormat('es-MX').format(app.loan_amnt)} solicitados</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg uppercase tracking-wider">
+                      {app.status.replace(/_/g, ' ')}
+                    </span>
+                    <button 
+                      onClick={() => navigate(`/tramite/${app.id}`)}
+                      className="text-slate-400 hover:text-[#1A4E5E] transition-colors"
+                      title="Ver detalles en cartera"
+                    >
+                      <ArrowRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
