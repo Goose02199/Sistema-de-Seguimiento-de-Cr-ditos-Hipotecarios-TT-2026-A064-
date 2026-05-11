@@ -4,6 +4,50 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.contrib.postgres.fields import ArrayField
+from django.utils import timezone
+
+class Appointment(models.Model):
+    STATUS_CHOICES = [
+        ('scheduled', 'Programada'),
+        ('completed', 'Completada'),
+        ('cancelled', 'Cancelada'),
+        ('rescheduled', 'Reagendada'),
+    ]
+
+    # Relación principal: A qué trámite pertenece esta cita
+    application = models.ForeignKey(
+        'LoanApplication', 
+        on_delete=models.CASCADE, 
+        related_name='appointments'
+    )
+    
+    # Fecha y hora exacta de la cita
+    scheduled_at = models.DateTimeField()
+    
+    # Estado actual de la reunión
+    status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='scheduled'
+    )
+
+    # Ubicación (Puede ser una sucursal física o un enlace de Google Meet/Zoom)
+    location = models.CharField(max_length=255)
+    
+    # Notas adicionales (ej. "Traer identificación original" o comentarios del cliente)
+    notes = models.TextField(blank=True, null=True)
+
+    # Auditoría de creación
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['scheduled_at']
+        verbose_name = 'Cita'
+        verbose_name_plural = 'Citas'
+
+    def __str__(self):
+        return f"Cita para {self.application.id} el {self.scheduled_at.strftime('%Y-%m-%d %H:%M')}"
 
 def get_upload_path(instance, filename):
     """

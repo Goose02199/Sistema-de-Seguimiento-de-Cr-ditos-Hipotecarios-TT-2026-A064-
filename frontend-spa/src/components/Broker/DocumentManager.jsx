@@ -21,6 +21,9 @@ const DocumentManager = ({ app }) => {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [reviewingDoc, setReviewingDoc] = useState(null);
+  const [finalizing, setFinalizing] = useState(false);
+
+  const isLocked = ['waiting_appointment', 'appointment_scheduled', 'finished'].includes(app.status);
 
   // 1. Cargar los documentos actuales del trámite
   const fetchDocuments = async () => {
@@ -65,6 +68,28 @@ const DocumentManager = ({ app }) => {
       console.error("Error al solicitar documentos:", error);
     } finally {
       setRequesting(false);
+    }
+  };
+
+  const handleFinalizeReview = async () => {
+    if (!window.confirm("¿Estás seguro de finalizar la revisión? El expediente se bloqueará y el cliente será notificado para agendar su cita.")) {
+      return;
+    }
+
+    try {
+      setFinalizing(true);
+      // Hacemos PATCH a la aplicación para cambiar su macro-estatus
+      await api.patch(`/mortgage/applications/${app.id}/`, {
+        status: 'waiting_appointment'
+      });
+      
+      // Recargamos la página para que todo el ApplicationDetail se actualice
+      window.location.reload();
+    } catch (error) {
+      console.error("Error al finalizar la revisión:", error);
+      alert("Hubo un error al avanzar el trámite.");
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -177,38 +202,75 @@ const DocumentManager = ({ app }) => {
                     <StatusBadge status={doc.status} />
                     
                     {/* AQUÍ AGREGAREMOS LOS BOTONES DE VISUALIZAR Y CALIFICAR EN EL PRÓXIMO PASO */}
+                    {/* BOTÓN DE REVISIÓN / VISUALIZACIÓN */}
                     <button 
-                      onClick={() => setReviewingDoc(doc)} // <--- AÑADIMOS EL ONCLICK
+                      onClick={() => setReviewingDoc(doc)}
+                      // Ahora solo se deshabilita si NO hay archivo cargado
                       disabled={doc.status === 'requested'}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                        doc.status === 'requested' 
+                        doc.status === 'requested'
                           ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed' 
-                          : 'bg-[#1A4E5E] text-white hover:bg-[#133a46] shadow-sm' // <--- MEJORAMOS EL ESTILO
+                          : 'bg-[#1A4E5E] text-white hover:bg-[#133a46] shadow-sm' 
                       }`}
-                      title={doc.status === 'requested' ? "El cliente aún no sube el archivo" : "Revisar documento"}
+                      title={doc.status === 'requested' ? "El cliente aún no sube el archivo" : "Ver documento"}
                     >
-                      {doc.status === 'under_review' ? 'Revisar' : 'Ver Detalles'}
+                      {/* El texto cambia según el contexto */}
+                      {isLocked ? 'Ver Detalles' : (doc.status === 'under_review' ? 'Revisar' : 'Ver Detalles')}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+          
+        {/* --- BANNER DE FINALIZACIÓN --- */}
+          {app.status === 'docs_approved' && (
+            <div className="p-6 bg-emerald-50 border-t border-emerald-100 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-2">
+              <div>
+                <h4 className="font-bold text-emerald-800 flex items-center gap-2">
+                  <CheckCircle size={18} /> Todos los documentos aprobados
+                </h4>
+                <p className="text-xs text-emerald-600 mt-1">
+                  El expediente está completo. Finaliza la revisión para pasar al agendamiento de cita.
+                </p>
+              </div>
+              <button
+                onClick={handleFinalizeReview}
+                disabled={finalizing}
+                className="w-full sm:w-auto px-6 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {finalizing ? <Clock className="animate-spin" size={18} /> : <CheckCircle size={18} />}
+                Finalizar y Agendar Cita
+              </button>
+            </div>
+          )}
+
+          {/* Banner visual si ya está bloqueado */}
+          {isLocked && (
+            <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+              <p className="text-sm font-bold text-slate-500 flex items-center justify-center gap-2">
+                <ShieldCheck size={18} /> Expediente Validado y Cerrado
+              </p>
+            </div>
+          )}
+
         </div>
       </div>
+      
         {/* Modal de Revisión (Aparece cuando reviewingDoc tiene un documento) */}
         {reviewingDoc && (
-            <ReviewModal 
-            doc={reviewingDoc} 
-            onClose={() => setReviewingDoc(null)} 
-            onRefresh={fetchDocuments} 
-            />
-        )}
+        <ReviewModal 
+          doc={reviewingDoc} 
+          isLocked={isLocked} // <--- Pasamos la prop
+          onClose={() => setReviewingDoc(null)} 
+          onRefresh={fetchDocuments} 
+        />
+      )}
     </div>
   );
 };
 
-const ReviewModal = ({ doc, onClose, onRefresh }) => {
+const ReviewModal = ({doc, isLocked, onClose, onRefresh}) => {
   const [status, setStatus] = useState('approved');
   const [feedback, setFeedback] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -225,8 +287,18 @@ const ReviewModal = ({ doc, onClose, onRefresh }) => {
         status: status,
         feedback: status === 'rejected' ? feedback : ''
       });
-      onRefresh(); // Recarga la lista de documentos en el panel principal
-      onClose(); // Cierra el modal
+      // Llamamos a onRefresh para actualizar la lista local de documentos
+      await onRefresh(); 
+      
+      // --- TRUCO DE RECARGA ---
+      // Si aprobamos, recargamos la página completa. 
+      // Esto hará que el componente padre (ApplicationDetail) vuelva a consultar 
+      // la API, detecte el nuevo macro-status "docs_approved" y pinte el botón verde.
+      if (status === 'approved') {
+        window.location.reload(); 
+      } else {
+        onClose();
+      }
     } catch (error) {
       console.error("Error al calificar el documento:", error);
       alert("Hubo un error al guardar la calificación.");
@@ -247,56 +319,70 @@ const ReviewModal = ({ doc, onClose, onRefresh }) => {
         {/* LADO DERECHO: Controles de Calificación */}
         <div className="w-full md:w-96 bg-white flex flex-col h-full shrink-0">
           <div className="p-6 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800">Revisión de Documento</h3>
+            <h3 className="text-lg font-bold text-slate-800">
+              {isLocked ? 'Consulta de Documento' : 'Revisión de Documento'}
+            </h3>
             <p className="text-sm text-slate-500">{doc.document_name}</p>
           </div>
 
           <div className="flex-1 p-6 overflow-y-auto space-y-6">
-            
-            {/* Opciones de Aprobación/Rechazo */}
-            <div className="space-y-3">
-              <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${status === 'approved' ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input 
-                  type="radio" 
-                  name="status" 
-                  value="approved" 
-                  checked={status === 'approved'} 
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-5 h-5 text-emerald-600 focus:ring-emerald-500 border-slate-300"
-                />
-                <div>
-                  <p className="font-bold text-emerald-700">Aprobar Documento</p>
-                  <p className="text-xs text-emerald-600">El documento cumple con todos los requisitos.</p>
-                </div>
-              </label>
-
-              <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${status === 'rejected' ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input 
-                  type="radio" 
-                  name="status" 
-                  value="rejected" 
-                  checked={status === 'rejected'} 
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-5 h-5 text-rose-600 focus:ring-rose-500 border-slate-300"
-                />
-                <div>
-                  <p className="font-bold text-rose-700">Rechazar Documento</p>
-                  <p className="text-xs text-rose-600">Solicitar al cliente que lo suba de nuevo.</p>
-                </div>
-              </label>
-            </div>
-
-            {/* Campo de Feedback (Solo visible si se rechaza) */}
-            {status === 'rejected' && (
-              <div className="animate-in slide-in-from-top-2 duration-300">
-                <label className="block text-sm font-bold text-slate-700 mb-2">Motivo del rechazo:</label>
-                <textarea 
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="Ej: El comprobante de domicilio no debe ser mayor a 3 meses de antigüedad."
-                  className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-[#1A4E5E] focus:border-[#1A4E5E] outline-none text-sm resize-none h-32"
-                />
+            {isLocked ? (
+              // MODO LECTURA: Solo mostramos el estatus actual
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 text-center">
+                <ShieldCheck size={40} className="mx-auto text-slate-400 mb-2" />
+                <p className="text-sm font-bold text-slate-600">Documento en Modo Lectura</p>
+                <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-black">
+                  Estatus: {doc.status}
+                </p>
               </div>
+            ) : (
+              // MODO EDICIÓN: El bróker aún puede calificar
+              <>
+                <div className="space-y-3">
+                  <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${status === 'approved' ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' : 'border-slate-200 hover:bg-slate-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="approved" 
+                      checked={status === 'approved'} 
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="w-5 h-5 text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                    />
+                    <div>
+                      <p className="font-bold text-emerald-700">Aprobar Documento</p>
+                      <p className="text-xs text-emerald-600">El documento cumple con todos los requisitos.</p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${status === 'rejected' ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500' : 'border-slate-200 hover:bg-slate-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="rejected" 
+                      checked={status === 'rejected'} 
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="w-5 h-5 text-rose-600 focus:ring-rose-500 border-slate-300"
+                    />
+                    <div>
+                      <p className="font-bold text-rose-700">Rechazar Documento</p>
+                      <p className="text-xs text-rose-600">Solicitar al cliente que lo suba de nuevo.</p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Campo de Feedback (Solo visible si se rechaza) */}
+                {status === 'rejected' && (
+                  <div className="animate-in slide-in-from-top-2 duration-300">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Motivo del rechazo:</label>
+                    <textarea 
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      placeholder="Ej: El comprobante de domicilio no debe ser mayor a 3 meses de antigüedad."
+                      className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-[#1A4E5E] focus:border-[#1A4E5E] outline-none text-sm resize-none h-32"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -307,18 +393,20 @@ const ReviewModal = ({ doc, onClose, onRefresh }) => {
             >
               Cancelar
             </button>
-            <button 
-              onClick={handleSubmit}
-              disabled={submitting || (status === 'rejected' && !feedback.trim())}
-              className={`flex-1 px-4 py-3 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${
-                status === 'approved' 
-                  ? 'bg-emerald-600 hover:bg-emerald-700' 
-                  : 'bg-rose-600 hover:bg-rose-700'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {submitting ? <Clock className="animate-spin" size={18} /> : <CheckCircle size={18} />}
-              Guardar
-            </button>
+            {!isLocked && (
+              <button 
+                onClick={handleSubmit}
+                disabled={submitting || (status === 'rejected' && !feedback.trim())}
+                className={`flex-1 px-4 py-3 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                  status === 'approved' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700' 
+                    : 'bg-rose-600 hover:bg-rose-700'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {submitting ? <Clock className="animate-spin" size={18} /> : <CheckCircle size={18} />}
+                Guardar
+              </button>
+            )}
           </div>
         </div>
       </div>

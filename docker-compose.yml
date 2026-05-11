@@ -143,7 +143,7 @@ services:
     container_name: mortgage-core
     volumes:
       - ./mortgage-core:/app
-      - mortgage_media:/app/media
+      - ./mortgage_data/media:/app/media
     ports:
       - "8001:8001"
     env_file:
@@ -166,5 +166,3 @@ volumes:
   auth-db-data:
   core-db-data:
   redis-data:
-  mortgage_media:
-    name: mortgage_media_data
