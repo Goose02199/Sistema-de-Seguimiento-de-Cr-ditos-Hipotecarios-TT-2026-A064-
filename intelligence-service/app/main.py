@@ -1,11 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Any
 
 # Motores para modelos
 from .core.predictor import RiskPredictor
 from .core.recommender import BankRecommender
 
+from .engines.banorte.engine import orquestar_cotizacion_banorte
+from .engines.santander.engine import orquestar_cotizacion_santander
+from .engines.scotiabank.engine import orquestar_cotizacion_scotiabank
+
+import traceback
 import os
 
 app = FastAPI(title="Intelligence Service - Risk Analysis - Comprehensive Engine")
@@ -41,6 +46,15 @@ class RecommendationRequest(BaseModel):
     ingresoMensual: float
     valorVivienda: float
 
+class CotizacionBanorteRequest(BaseModel):
+    """
+    Esquema para el Cotizador de Banorte.
+    Usamos Dict y List[Dict] para mantener la flexibilidad total 
+    en caso de que el equipo de IA agregue nuevas variables.
+    """
+    datos_usuario: Dict[str, Any]
+    productos_banco: List[Dict[str, Any]]
+
 # --- ENDPOINTS ---
 
 @app.get("/health")
@@ -73,40 +87,60 @@ async def recommend_banks(data: RecommendationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ML Recommendation Error: {str(e)}")
 
-# --- ENDPOINT 3: MOTOR FINANCIERO (Simulación) ---
-# @app.post("/simulate")
-# async def run_simulation(payload: dict):
-#     """
-#     Recibe el politicas_json (de mortgage-core) y los datos del usuario.
-#     """
-#     try:
-#         # 1. Validar presencia de datos básicos
-#         if 'bank_config' not in payload or 'usuario' not in payload:
-#             raise HTTPException(status_code=400, detail="Faltan bank_config o usuario en el JSON")
+# ENDPOINT 3: Cotizador Analítico (Banorte)
+@app.post("/cotizar/banorte")
+async def cotizar_banorte(payload: CotizacionBanorteRequest):
+    """
+    Motor determinista de cotizaciones para Banorte.
+    Recibe el perfil del cliente y las políticas de la DB inyectadas desde Django.
+    """
+    try:
+        # Llamamos a nuestra función puente
+        resultado = orquestar_cotizacion_banorte(
+            datos_usuario=payload.datos_usuario,
+            productos_banco=payload.productos_banco
+        )
+        
+        # Si la función devolvió exito = False (ej. el cliente no califica)
+        if not resultado.get("exito"):
+            # En lugar de explotar con un error 500, devolvemos un 400 amigable
+            raise HTTPException(status_code=400, detail=resultado.get("mensaje"))
             
-#         bank_config = payload['bank_config']
-#         usuario = payload['usuario']
+        return resultado
         
-#         # 2. Instanciar motor específico (Por ahora Banorte)
-#         # En el futuro, el Orchestrator decidirá cuál usar según el slug del banco
-#         engine = BanorteEngine(bank_config)
-        
-#         # 3. Ejecutar lógica de Rescate (Sección 4 del Notebook)
-#         resultado = engine.ejecutar_rescate_banorte(usuario)
-        
-#         if not resultado:
-#             return {
-#                 "status": "rejected",
-#                 "message": "Capacidad de pago insuficiente incluso con 30% de enganche."
-#             }
-            
-#         return {
-#             "status": "success",
-#             "data": resultado
-#         }
-        
-#     except Exception as e:
-#         import traceback
-#         print(traceback.format_exc())
-#         raise HTTPException(status_code=500, detail=f"Engine Error: {str(e)}")
+    except Exception as e:
+        print("--- ERROR EN MOTOR BANORTE ---")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Fallo interno en cotización Banorte: {str(e)}")
 
+@app.post("/cotizar/santander")
+async def cotizar_santander(payload: CotizacionBanorteRequest): # Puedes reusar el esquema
+    try:
+        resultado = orquestar_cotizacion_santander(
+            datos_usuario=payload.datos_usuario,
+            productos_banco=payload.productos_banco
+        )
+        if not resultado.get("exito"):
+            raise HTTPException(status_code=400, detail=resultado.get("mensaje"))
+            
+        return resultado
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Fallo interno en cotización Santander: {str(e)}")
+
+# ENDPOINT 5: Cotizador Analítico (Scotiabank)
+@app.post("/cotizar/scotiabank")
+async def cotizar_scotiabank(payload: CotizacionBanorteRequest): 
+    try:
+        resultado = orquestar_cotizacion_scotiabank(
+            datos_usuario=payload.datos_usuario,
+            productos_banco=payload.productos_banco
+        )
+        if not resultado.get("exito"):
+            raise HTTPException(status_code=400, detail=resultado.get("mensaje"))
+        return resultado
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Fallo interno en cotización Scotiabank: {str(e)}")
