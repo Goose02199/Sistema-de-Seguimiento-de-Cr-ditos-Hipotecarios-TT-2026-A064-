@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import LoanApplication, CustomerDocument, Appointment, BrokerAvailability
+from .models import LoanApplication, CustomerDocument, Appointment, BrokerAvailability, BankProduct, Bank
 from django.shortcuts import get_object_or_404
 from .services import IntelligenceClient, MortgageService, IdentityClient
 from .serializers import AppointmentSerializer, BankRecommendationSerializer, RiskAssessmentSerializer, LoanApplicationSerializer
@@ -777,3 +777,45 @@ class MyAgendaView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class CotizadorView(APIView):
+    
+
+    def post(self, request, banco_slug):
+        # 1. Extraer datos que vienen del frontend (React)
+        datos_usuario = request.data.get('usuario_perfil')
+        
+        # VALIDACIÓN DEFENSIVA: Evitamos mandar 'None' al microservicio de Inteligencia
+        if not datos_usuario:
+            return Response(
+                {"error": "Falta el objeto 'usuario_perfil' en el cuerpo de la petición."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 2. Obtener las políticas desde la DB
+        productos_db = BankProduct.objects.filter(
+            bank__slug=banco_slug,
+            bank__is_active=True  # Filtramos por el is_active del modelo Bank
+        )
+        
+        if not productos_db.exists():
+            return Response(
+                {"error": f"No hay productos activos configurados para '{banco_slug}'."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Extraemos solo el politicas_json de cada objeto para el payload
+        politicas_list = [p.politicas_json for p in productos_db]
+
+        # 3. Llamada inter-servicio (Usando el nombre correcto de tu import)
+        resultado = IntelligenceClient.obtener_cotizacion(
+            banco_slug=banco_slug,
+            datos_usuario=datos_usuario,
+            productos_json=politicas_list
+        )
+
+        # 4. Manejo de la respuesta
+        if resultado.get('exito'):
+            return Response(resultado, status=status.HTTP_200_OK)
+        
+        return Response(resultado, status=status.HTTP_400_BAD_REQUEST)

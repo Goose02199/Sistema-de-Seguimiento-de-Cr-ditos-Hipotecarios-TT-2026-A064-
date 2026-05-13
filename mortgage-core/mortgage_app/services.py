@@ -1,4 +1,5 @@
 import requests
+from django.conf import settings
 import os
 import logging
 from .models import LoanApplication
@@ -107,6 +108,40 @@ class IntelligenceClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Error en Bank Recommendations: {e}")
             return {"status": "error", "message": str(e)}
+    
+    @classmethod
+    def obtener_cotizacion(cls, banco_slug, datos_usuario, productos_json):
+        """
+        Envía la petición al endpoint correspondiente según el banco.
+        """
+        # Mapeo de slugs a endpoints de FastAPI
+        endpoints = {
+            'banorte': '/cotizar/banorte',
+            'santander': '/cotizar/santander',
+            'scotiabank': '/cotizar/scotiabank'
+        }
+
+        endpoint = endpoints.get(banco_slug)
+        if not endpoint:
+            return {"exito": False, "mensaje": f"Banco {banco_slug} no soportado."}
+
+        url = f"{cls.BASE_URL}{endpoint}"
+        
+        payload = {
+            "datos_usuario": datos_usuario,
+            "productos_banco": productos_json
+        }
+
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error conectando con Intelligence Service: {e}")
+            return {
+                "exito": False, 
+                "mensaje": f"Error de conexión con el motor de inteligencia: {str(e)}"
+            }
 
 class MortgageService:
     @staticmethod

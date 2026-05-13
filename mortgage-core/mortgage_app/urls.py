@@ -15,6 +15,7 @@ from .views import (
     CreateAppointmentInvitationView,
     ApplicationAppointmentView,
     MyAgendaView,
+    CotizadorView,
 )
 
 urlpatterns = [
@@ -33,4 +34,5 @@ urlpatterns = [
     path('appointments/', CreateAppointmentInvitationView.as_view(), name='create_appointment'),
     path('applications/<int:app_id>/appointment/', ApplicationAppointmentView.as_view()),
     path('appointments/me/', MyAgendaView.as_view(), name='my_agenda'),
+    path('cotizar/<slug:banco_slug>/', CotizadorView.as_view(), name='cotizador'),
 ]

@@ -3,6 +3,13 @@ import { useForm } from 'react-hook-form';
 import api from '../api/api';
 import { User, Mail, Shield, Calendar, Lock, Loader2, Check, Circle, AlertCircle } from 'lucide-react';
 
+const CP_ALCALDIAS = {
+  '01': 'Álvaro Obregón', '02': 'Azcapotzalco', '03': 'Benito Juárez', '04': 'Coyoacán',
+  '05': 'Cuajimalpa de Morelos', '06': 'Cuauhtémoc', '07': 'Gustavo A. Madero', '08': 'Iztacalco',
+  '09': 'Iztapalapa', '10': 'La Magdalena Contreras', '11': 'Miguel Hidalgo', '12': 'Tláhuac',
+  '13': 'Xochimilco', '14': 'Tlalpan', '15': 'Venustiano Carranza', '16': 'Milpa Alta'
+};
+
 const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -10,12 +17,11 @@ const Profile = () => {
   const [passMsg, setPassMsg] = useState({ type: '', text: '' });
   const [isEditing, setIsEditing] = useState(false);
 
-  // 1. Formulario para Datos Personales (Solo los campos editables)
   const { 
-    register: registerProfile, 
-    handleSubmit: handleSubmitProfile, 
-    reset: resetProfile  
-  } = useForm();
+    register: registerDelete, 
+    handleSubmit: handleSubmitDelete, 
+    formState: { isSubmitting: isDeletingAccount } 
+  } = useForm();
 
   // 2. Formulario para Seguridad (Password)
   const { 
@@ -27,10 +33,33 @@ const Profile = () => {
   } = useForm();
 
   const { 
-    register: registerDelete, 
-    handleSubmit: handleSubmitDelete, 
-    formState: { isSubmitting: isDeletingAccount } 
+    register: registerProfile, 
+    handleSubmit: handleSubmitProfile, 
+    reset: resetProfile,
+    watch: watchProfile,    // <-- AÑADIR
+    setValue: setValueProfile, // <-- AÑADIR
+    formState: { errors: errorsProfile } // <-- AÑADIR
   } = useForm();
+
+  const cpValue = watchProfile("postal_code");
+
+  useEffect(() => {
+    if (cpValue?.length >= 2) {
+      const prefix = cpValue.substring(0, 2);
+      if (CP_ALCALDIAS[prefix]) {
+        setValueProfile("state", "Ciudad de México");
+        setValueProfile("municipality", CP_ALCALDIAS[prefix]);
+      }
+    }
+  }, [cpValue, setValueProfile]);
+
+  const validateAge = (value) => {
+    const birthDate = new Date(value);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    if (today < new Date(birthDate.setFullYear(today.getFullYear()))) age--;
+    return (age >= 18 && age <= 90) || "Edad debe estar entre 18 y 90 años";
+  };
 
   const newPasswordValue = watchPass("new_password", "");
 
@@ -148,11 +177,9 @@ const Profile = () => {
 
         <form onSubmit={handleSubmitProfile(onUpdateProfile)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <EditableField 
-            label="Teléfono" 
-            name="phone" 
-            register={registerProfile} 
-            isEditing={isEditing} 
-            defaultValue={userData.phone} 
+            label="Teléfono" name="phone" isEditing={isEditing} register={registerProfile} defaultValue={userData.phone}
+            errors={errorsProfile}
+            rules={{ required: "Requerido", pattern: { value: /^[0-9]{10}$/, message: "10 dígitos" } }} 
           />
           <EditableField 
             label="Estado Civil" 
@@ -162,11 +189,9 @@ const Profile = () => {
             defaultValue={userData.marital_status} 
           />
           <EditableField 
-            label="CURP/RFC" 
-            name="curp_rfc" 
-            register={registerProfile} 
-            isEditing={isEditing} 
-            defaultValue={userData.curp_rfc} 
+            label="CURP/RFC" name="curp_rfc" isEditing={isEditing} register={registerProfile} defaultValue={userData.curp_rfc}
+            errors={errorsProfile}
+            rules={{ required: "Requerido", pattern: { value: /^([A-Z][AEIOUX][A-Z]{2}\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[HM](?:AS|B[CS]|C[CLMSH]|D[FG]|G[TR]|HG|JC|M[CNSL]|N[ETL]|OC|PL|Q[TR]|S[PLR]|T[CSL]|VZ|YN|ZS)[B-DF-HJ-NP-TV-Z]{3}[A-Z\d])|([A-Z&Ñ]{3,4}\d{6}[A-Z\d]{3})$/i, message: "Formato inválido" } }}
           />
           <EditableField 
             label="Dirección" 
@@ -176,11 +201,9 @@ const Profile = () => {
             defaultValue={userData.address} 
           />
           <EditableField 
-            label="Código Postal" 
-            name="postal_code" 
-            register={registerProfile} 
-            isEditing={isEditing} 
-            defaultValue={userData.postal_code} 
+            label="Código Postal" name="postal_code" isEditing={isEditing} register={registerProfile} defaultValue={userData.postal_code}
+            errors={errorsProfile}
+            rules={{ required: "Requerido", pattern: { value: /^(0[1-9]|1[0-6])\d{3}$/, message: "CP no es de CDMX" } }}
           />
           <EditableField 
             label="Estado" 
@@ -204,11 +227,9 @@ const Profile = () => {
             defaultValue={userData.housing_status} 
           />
           <EditableField 
-            label="Fecha de Nacimiento" 
-            name="birth_date" 
-            register={registerProfile} 
-            isEditing={isEditing} 
-            defaultValue={userData.birth_date} 
+            label="Fecha de Nacimiento" name="birth_date" isEditing={isEditing} register={registerProfile} defaultValue={userData.birth_date}
+            errors={errorsProfile} type="date"
+            rules={{ required: "Requerido", validate: validateAge }}
           />
           
           {isEditing && (
@@ -347,48 +368,34 @@ const CheckItem = ({ met, text }) => (
   </div>
 );
 
-const EditableField = ({ label, name, register, isEditing, defaultValue }) => {
-  // Diccionario para mostrar el valor amigable en modo lectura
-  const housingLabels = {
-    'RENT': 'Renta',
-    'OWN': 'Propia',
-    'MORTGAGE': 'Hipotecada',
-    'FAMILY': 'Familiar',
-    'OTHER': 'Otro',
-    'None': 'Ninguno'
-  };
+const EditableField = ({ label, name, register, isEditing, defaultValue, errors, rules, type = "text" }) => {
+  const housingLabels = { 'RENT': 'Renta', 'OWN': 'Propia', 'MORTGAGE': 'Hipotecada', 'FAMILY': 'Familiar', 'OTHER': 'Otro', 'None': 'Ninguno' };
 
   return (
     <div>
       <label className="block text-xs font-bold text-slate-400 uppercase mb-1">{label}</label>
       {isEditing ? (
-        name === "housing_status" ? (
-          <select 
-            {...register(name)} 
-            defaultValue={defaultValue}
-            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1A4E5E] outline-none bg-white appearance-none"
-          >
-            <option value="">Seleccione...</option>
-            <option value="RENT">Renta</option>
-            <option value="OWN">Propia</option>
-            <option value="MORTGAGE">Hipotecada</option>
-            <option value="FAMILY">Familiar</option>
-            <option value="OTHER">Otro</option>
-            <option value="None">Ninguno</option>
-          </select>
-        ) : (
-          <input 
-            {...register(name)} 
-            defaultValue={defaultValue}
-            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1A4E5E] outline-none"
-          />
-        )
+        <>
+          {name === "housing_status" ? (
+            <select {...register(name, rules)} defaultValue={defaultValue} className="w-full p-2 border border-slate-200 rounded-lg outline-none bg-white">
+              <option value="RENT">Renta</option><option value="OWN">Propia</option><option value="MORTGAGE">Hipotecada</option><option value="FAMILY">Familiar</option>
+            </select>
+          ) : name === "municipality" ? (
+            <select {...register(name, rules)} className="w-full p-2 border border-slate-200 rounded-lg outline-none bg-white">
+              {Object.values(CP_ALCALDIAS).map(alc => <option key={alc} value={alc}>{alc}</option>)}
+            </select>
+          ) : (
+            <input 
+              type={type} {...register(name, rules)} defaultValue={defaultValue}
+              readOnly={name === "state"}
+              className={`w-full p-2 border rounded-lg outline-none ${name === "state" ? "bg-slate-100 text-slate-500" : "bg-white"} ${errors?.[name] ? "border-red-500" : "border-slate-200"}`} 
+            />
+          )}
+          {errors?.[name] && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors[name].message}</p>}
+        </>
       ) : (
         <p className="text-slate-800 font-semibold">
-          {name === "housing_status" 
-            ? (housingLabels[defaultValue] || defaultValue || 'No especificado')
-            : (defaultValue || 'No especificado')
-          }
+          {name === "housing_status" ? (housingLabels[defaultValue] || defaultValue || 'No especificado') : (defaultValue || 'No especificado')}
         </p>
       )}
     </div>

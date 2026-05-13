@@ -311,8 +311,22 @@ const MortgageStepper = () => {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         {/* Aquí renderizaremos condicionalmente cada sección */}
-        {currentStep === 0 && <Step1Identity register={register} errors={errors} />}
-        {currentStep === 1 && <Step2Employment register={register} errors={errors} />}
+        {currentStep === 0 && (
+          <Step1Identity 
+            register={register} 
+            errors={errors} 
+            setValue={setValue} 
+            watch={watch} 
+          />
+        )}
+        {currentStep === 1 && ( 
+          <Step2Employment 
+            register={register} 
+            errors={errors} 
+            setValue={setValue} 
+            watch={watch}
+          />
+        )}
         {currentStep === 2 && (
           <Step3Financial 
             register={register} 

@@ -11,6 +11,7 @@ import {
 import AICalculatorTab from './AICalculatorTab';
 import DocumentManager from './DocumentManager';
 import AppointmentScheduler from './AppointmentScheduler';
+import BankSimulatorTab from './BankSimulatorTab';
 import api from '../../api/api';
 
 const ApplicationDetail = () => {
@@ -99,6 +100,12 @@ const ApplicationDetail = () => {
             label="Agendar Cita" 
           />
         )}
+        <TabButton 
+          active={activeTab === 'simulador'} 
+          onClick={() => setActiveTab('simulador')} 
+          icon={<Landmark size={18} />} 
+          label="Cotizador Interactivo" 
+        />
       </div>
 
       <div className="mt-6">
@@ -221,10 +228,10 @@ const ApplicationDetail = () => {
           </div>
         )}
         {activeTab === 'calculadora' && <AICalculatorTab app={app} />}
-        {/* --- RENDERIZADO DE LA NUEVA PESTAÑA --- */}
         {activeTab === 'cita' && (
            <AppointmentScheduler app={app} onStatusUpdate={() => window.location.reload()} />
         )}
+        {activeTab === 'simulador' && <BankSimulatorTab app={app} />}
       </div>
     </div>
   );
