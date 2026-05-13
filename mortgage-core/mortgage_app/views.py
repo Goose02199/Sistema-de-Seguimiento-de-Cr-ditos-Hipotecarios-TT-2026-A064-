@@ -1,16 +1,24 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import LoanApplication, CustomerDocument
+from .models import LoanApplication, CustomerDocument, Appointment, BrokerAvailability
 from django.shortcuts import get_object_or_404
 from .services import IntelligenceClient, MortgageService, IdentityClient
-from .serializers import BankRecommendationSerializer, RiskAssessmentSerializer, LoanApplicationSerializer
+from .serializers import AppointmentSerializer, BankRecommendationSerializer, RiskAssessmentSerializer, LoanApplicationSerializer
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .serializers import CustomerDocumentSerializer
 from django.http import FileResponse, Http404, HttpResponse
 from django.core.files.base import ContentFile
 from .utils.crypto import encrypt_file_data, decrypt_file_data
 import mimetypes
+from datetime import datetime, timedelta, date
+from django.db.models import Q
+from django.utils import timezone
+from datetime import datetime, timedelta, date
+from django.db import transaction, IntegrityError
+from django.utils import timezone
+from rest_framework.permissions import IsAuthenticated
+from django.core.exceptions import ValidationError
 
 class RiskAssessmentView(APIView):
     """
@@ -165,7 +173,6 @@ class ApplicationDocumentListView(APIView):
             "message": "Documentos solicitados correctamente",
             "data": serializer.data
         }, status=status.HTTP_201_CREATED)
-
 
 class DocumentDetailView(APIView):
     """
@@ -428,3 +435,345 @@ class LoanApplicationCreateView(APIView):
                 )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class AvailableSlotsView(APIView):
+    """
+    Calcula dinámicamente los huecos disponibles para una cita específica,
+    cruzando la agenda del bróker y evitando colisiones con otras citas.
+    """
+    def get(self, request, appointment_id):
+        try:
+            appointment = Appointment.objects.get(id=appointment_id, status='pending_client')
+            
+            # --- CAMBIO 1: Usar assigned_broker_id en lugar de broker_assigned ---
+            broker_id = appointment.application.assigned_broker_id 
+            
+            duration = timedelta(minutes=appointment.duration_minutes)
+        except Appointment.DoesNotExist:
+            return Response({"error": "Cita no encontrada o ya agendada."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 1. Definimos la ventana de búsqueda (Ej: los próximos 14 días)
+        today = timezone.now().date()
+        end_date = today + timedelta(days=14)
+
+        # 2. Obtenemos las disponibilidades del bróker en esa ventana
+        availabilities = BrokerAvailability.objects.filter(
+            # --- CAMBIO 2: Usar broker_user_id (el nuevo campo de BrokerAvailability) ---
+            broker_user_id=broker_id, 
+            date__gte=today,
+            date__lte=end_date
+        ).order_by('date', 'start_time')
+
+        # 3. Obtenemos las citas que el bróker YA TIENE ocupadas en esa ventana
+        busy_appointments = Appointment.objects.filter(
+            # --- CAMBIO 3: Usar application__assigned_broker_id ---
+            application__assigned_broker_id=broker_id, 
+            status='scheduled',
+            scheduled_at__date__gte=today,
+            scheduled_at__date__lte=end_date
+        )
+
+        available_slots = {}
+
+        # 4. El Algoritmo de Chunking (Cortar el pastel en rebanadas)
+        for av in availabilities:
+            current_dt = datetime.combine(av.date, av.start_time)
+            end_dt = datetime.combine(av.date, av.end_time)
+            
+            # Formato de llave para el diccionario (Ej: "2026-05-18")
+            date_str = av.date.strftime('%Y-%m-%d')
+            if date_str not in available_slots:
+                available_slots[date_str] = []
+
+            # Mientras la rebanada (duración) quepa en el bloque restante de disponibilidad
+            while current_dt + duration <= end_dt:
+                slot_end_dt = current_dt + duration
+                
+                # 5. Verificamos si este hueco choca con alguna cita ya ocupada
+                # Lógica de colisión: (Inicio A < Fin B) y (Fin A > Inicio B)
+                is_overlapping = False
+                for busy in busy_appointments:
+                    busy_start = timezone.make_naive(busy.scheduled_at) if timezone.is_aware(busy.scheduled_at) else busy.scheduled_at
+                    busy_end = busy_start + timedelta(minutes=busy.duration_minutes)
+                    
+                    if current_dt < busy_end and slot_end_dt > busy_start:
+                        is_overlapping = True
+                        break # Choca, descartamos este hueco
+                
+                # Si está libre y además es en el futuro (no horas pasadas de hoy)
+                if not is_overlapping and current_dt > datetime.now():
+                    available_slots[date_str].append({
+                        "start": current_dt.strftime('%H:%M'),
+                        "end": slot_end_dt.strftime('%H:%M')
+                    })
+                
+                # Avanzamos el reloj. Calendly suele avanzar en bloques fijos de 30 mins
+                # para tener horarios limpios (10:00, 10:30, 11:00) en lugar de (10:00, 11:15, 12:30).
+                current_dt += timedelta(minutes=30) 
+
+        # Limpiamos los días que se quedaron vacíos
+        clean_slots = {k: v for k, v in available_slots.items() if v}
+
+        return Response({"available_slots": clean_slots})
+
+class BrokerAvailabilityBulkUpdateView(APIView):
+    """
+    POST: Recibe una lista estructurada de horarios por día y reconstruye la disponibilidad.
+    """
+    def post(self, request):
+        # Extraemos el broker_id del body de la petición
+        broker_id = request.data.get('user_id')
+        agenda_data = request.data.get('agenda')
+
+        if not broker_id or not agenda_data:
+            return Response({"error": "Faltan datos (user_id o agenda)."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                for date_str, slots in agenda_data.items():
+                    target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    
+                    # Borramos lo anterior
+                    BrokerAvailability.objects.filter(broker_user_id=broker_id, date=target_date).delete()
+
+                    new_availabilities = []
+                    for slot in slots:
+                        start_t = datetime.strptime(slot['start_time'], '%H:%M').time()
+                        end_t = datetime.strptime(slot['end_time'], '%H:%M').time()
+                        
+                        if start_t >= end_t:
+                            raise ValueError(f"Hora de inicio debe ser menor a hora de fin en el día {date_str}.")
+
+                        new_availabilities.append(
+                            BrokerAvailability(
+                                broker_user_id=broker_id, # Pasamos el ID directamente
+                                date=target_date,
+                                start_time=start_t,
+                                end_time=end_t
+                            )
+                        )
+                    
+                    if new_availabilities:
+                        BrokerAvailability.objects.bulk_create(new_availabilities)
+
+            return Response({"message": "Disponibilidad actualizada correctamente."})
+            
+        # --- AÑADE ESTE BLOQUE NUEVO ---
+        except IntegrityError:
+            return Response(
+                {"error": "Estás intentando guardar horarios duplicados o superpuestos en el mismo día. Revisa tu agenda e intenta de nuevo."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response({"error": f"Error del servidor: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class BrokerScheduleView(APIView):
+    """
+    GET: Devuelve la disponibilidad del bróker y sus citas ocupadas para los próximos 14 días.
+    """
+    def get(self, request):
+        # --- ESTILO MICROSERVICIO ---
+        # Leemos el ID del bróker desde los query params (igual que en tu LoanApplicationListView)
+        broker_id = request.query_params.get('user_id')
+        
+        if not broker_id:
+            return Response({"error": "Falta el parámetro user_id"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        today = timezone.now().date()
+        end_date = today + timedelta(days=14)
+
+        # Usamos broker_id en lugar de la instancia de usuario
+        availabilities = BrokerAvailability.objects.filter(
+            broker_user_id=broker_id,
+            date__gte=today,
+            date__lte=end_date
+        ).order_by('date', 'start_time')
+
+        busy_appointments = Appointment.objects.filter(
+            application__assigned_broker_id=broker_id, # Ajustado a tu nomenclatura (assigned_broker_id)
+            status='scheduled',
+            scheduled_at__date__gte=today,
+            scheduled_at__date__lte=end_date
+        ).select_related('application')
+
+        schedule_data = {}
+        for i in range(15):
+            current_date = today + timedelta(days=i)
+            date_str = current_date.strftime('%Y-%m-%d')
+            schedule_data[date_str] = {'available_slots': [], 'busy_slots': []}
+
+        for av in availabilities:
+            date_str = av.date.strftime('%Y-%m-%d')
+            schedule_data[date_str]['available_slots'].append({
+                'id': av.id,
+                'start_time': av.start_time.strftime('%H:%M'),
+                'end_time': av.end_time.strftime('%H:%M')
+            })
+
+        for appt in busy_appointments:
+            appt_dt = timezone.make_naive(appt.scheduled_at) if timezone.is_aware(appt.scheduled_at) else appt.scheduled_at
+            date_str = appt_dt.strftime('%Y-%m-%d')
+            end_dt = appt_dt + timedelta(minutes=appt.duration_minutes)
+            
+            if date_str in schedule_data:
+                schedule_data[date_str]['busy_slots'].append({
+                    'start_time': appt_dt.strftime('%H:%M'),
+                    'end_time': end_dt.strftime('%H:%M'),
+                    'label': f"Trámite #{appt.application.id}"
+                })
+
+        return Response(schedule_data)
+
+class ApplicationAppointmentView(APIView):
+    """GET: Obtiene la cita ligada a un trámite específico."""
+    def get(self, request, app_id):
+        try:
+            appointment = Appointment.objects.get(application_id=app_id)
+            return Response(AppointmentSerializer(appointment).data)
+        except Appointment.DoesNotExist:
+            return Response({"error": "No hay cita configurada"}, status=status.HTTP_404_NOT_FOUND)
+
+class ScheduleAppointmentView(APIView):
+    """
+    Endpoint donde el cliente confirma la fecha y hora exacta de su cita.
+    """
+    def patch(self, request, appointment_id):
+        try:
+            appointment = Appointment.objects.get(id=appointment_id, status='pending_client')
+        except Appointment.DoesNotExist:
+            return Response(
+                {"error": "La cita no existe o ya fue agendada."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 1. Recibimos el string de la fecha/hora desde React (ej. "2026-05-18T10:30:00")
+        scheduled_at_str = request.data.get('scheduled_at')
+        if not scheduled_at_str:
+            return Response(
+                {"error": "Debes proporcionar una fecha y hora."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Convertimos el string a un objeto datetime "aware" (con zona horaria)
+            scheduled_at = datetime.fromisoformat(scheduled_at_str)
+            if timezone.is_naive(scheduled_at):
+                scheduled_at = timezone.make_aware(scheduled_at)
+        except ValueError:
+            return Response(
+                {"error": "Formato de fecha inválido. Usa ISO 8601."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. (Opcional pero recomendado) Aquí podrías re-ejecutar una validación rápida 
+        # de colisiones por si otro cliente le "ganó" el horario en los últimos 2 minutos.
+        
+        # 3. Guardamos la cita y actualizamos el Macro-Estatus
+        appointment.scheduled_at = scheduled_at
+        appointment.status = 'scheduled'
+        appointment.save()
+
+        # Actualizamos el trámite al siguiente paso
+        application = appointment.application
+        application.status = 'appointment_scheduled'
+        application.save(update_fields=['status'])
+
+        return Response({
+            "message": "Cita agendada correctamente.",
+            "data": AppointmentSerializer(appointment).data
+        })
+
+class CreateAppointmentInvitationView(APIView):
+    """
+    POST: Crea o actualiza la configuración inicial de la cita.
+    """
+    def post(self, request):
+        app_id = request.data.get('application')
+        
+        try:
+            application = LoanApplication.objects.get(id=app_id)
+        except LoanApplication.DoesNotExist:
+            return Response({"error": "Trámite no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Usamos el hasattr seguro para recuperar la cita si existe
+        appointment = getattr(application, 'appointment', None)
+        
+        if appointment:
+            # --- ACTUALIZAR CITA EXISTENTE ---
+            appointment.meeting_type = request.data.get('meeting_type')
+            appointment.location = request.data.get('location')
+            appointment.duration_minutes = request.data.get('duration_minutes')
+        else:
+            # --- CREAR NUEVA CITA ---
+            appointment = Appointment(
+                application=application,
+                meeting_type=request.data.get('meeting_type'),
+                location=request.data.get('location'),
+                duration_minutes=request.data.get('duration_minutes'),
+                status='pending_client'
+            )
+
+        try:
+            appointment.full_clean() 
+            appointment.save()
+            return Response(
+                {"message": "Invitación guardada exitosamente.", "id": appointment.id}, 
+                # Retornamos 200 OK si se actualizó, 201 Created si es nueva
+                status=status.HTTP_200_OK if appointment.id else status.HTTP_201_CREATED
+            )
+        except ValidationError as e:
+            return Response(
+                e.message_dict if hasattr(e, 'message_dict') else {"error": str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class MyAgendaView(APIView):
+    """
+    GET: Devuelve las citas programadas para el mes y año solicitados, 
+    filtradas dinámicamente si es CLIENTE o BROKER.
+    """
+    def get(self, request):
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+        user_id = request.query_params.get('user_id')
+        role = request.query_params.get('role')
+
+        if not all([month, year, user_id, role]):
+            return Response({"error": "Faltan parámetros de búsqueda."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # 1. Buscamos todas las citas agendadas en ese mes/año
+            appointments = Appointment.objects.filter(
+                status='scheduled',
+                scheduled_at__year=year,
+                scheduled_at__month=month
+            ).select_related('application')
+
+            # 2. Filtramos según el Rol (Microservicios)
+            if role == 'BROKER':
+                appointments = appointments.filter(application__assigned_broker_id=user_id)
+            else:
+                # Asumo que tu modelo LoanApplication tiene un campo user_id para el cliente
+                appointments = appointments.filter(application__user_id=user_id)
+
+            # 3. Armamos la respuesta para el calendario de React
+            data = []
+            for appt in appointments:
+                data.append({
+                    'id': appt.id,
+                    'application_id': appt.application.id,
+                    'scheduled_at': appt.scheduled_at.isoformat(),
+                    'duration_minutes': appt.duration_minutes,
+                    'meeting_type': appt.meeting_type,
+                    'location': appt.location,
+                    'status': appt.status,
+                    # Textos genéricos porque estamos en microservicios, 
+                    # si necesitas el nombre exacto habría que hacer fetch al Identity Service
+                    'client_name': 'Cliente del Trámite', 
+                    'broker_name': 'Tu Asesor Asignado' 
+                })
+
+            return Response(data)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

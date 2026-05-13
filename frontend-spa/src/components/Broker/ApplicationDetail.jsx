@@ -5,10 +5,12 @@ import {
   History, Cpu, PieChart, MapPin, Gavel, 
   FileText, Activity, Clock, TrendingDown, 
   Wallet, Award, Info, ChevronDown, ChevronUp,
-  ShieldCheck, Landmark, Tags, FlaskConical
+  ShieldCheck, Landmark, Tags, FlaskConical,
+  CalendarCheck
 } from 'lucide-react';
 import AICalculatorTab from './AICalculatorTab';
 import DocumentManager from './DocumentManager';
+import AppointmentScheduler from './AppointmentScheduler';
 import api from '../../api/api';
 
 const ApplicationDetail = () => {
@@ -89,6 +91,14 @@ const ApplicationDetail = () => {
         <TabButton active={activeTab === 'analisis'} onClick={() => setActiveTab('analisis')} icon={<Activity size={18} />} label="Análisis de Riesgo e IA" />
         <TabButton active={activeTab === 'documentos'} onClick={() => setActiveTab('documentos')} icon={<ShieldCheck size={18} />} label="Documentos" />
         <TabButton active={activeTab === 'calculadora'} onClick={() => setActiveTab('calculadora')} icon={<FlaskConical size={18} />} label="Calculadora IA" />
+        {['waiting_appointment', 'appointment_scheduled', 'finished'].includes(app.status) && (
+          <TabButton 
+            active={activeTab === 'cita'} 
+            onClick={() => setActiveTab('cita')} 
+            icon={<CalendarCheck size={18} />} 
+            label="Agendar Cita" 
+          />
+        )}
       </div>
 
       <div className="mt-6">
@@ -211,6 +221,10 @@ const ApplicationDetail = () => {
           </div>
         )}
         {activeTab === 'calculadora' && <AICalculatorTab app={app} />}
+        {/* --- RENDERIZADO DE LA NUEVA PESTAÑA --- */}
+        {activeTab === 'cita' && (
+           <AppointmentScheduler app={app} onStatusUpdate={() => window.location.reload()} />
+        )}
       </div>
     </div>
   );

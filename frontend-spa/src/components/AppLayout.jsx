@@ -3,7 +3,7 @@ import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, Search, Bell, User, LogOut, Home, 
   Calculator, Calendar, HelpCircle, ChevronLeft,
-  Loader2 
+  Loader2, Briefcase
 } from 'lucide-react';
 
 import api from '../api/api';
@@ -18,8 +18,11 @@ const AppLayout = () => {
   const userRole = tokenData?.role;
   const [loading, setLoading] = useState(true);
 
+  // CONFLICTO RESUELTO: Separamos las rutas de inicio por rol y agregamos "Cartera"
   const navigation = [
-    { to: "/inicio", icon: <Home size={20} />, label: "Inicio", roles: ['ADMINISTRADOR', 'BROKER', 'CLIENTE'] },
+    { to: "/inicio", icon: <Home size={20} />, label: "Inicio", roles: ['CLIENTE'] },
+    { to: "/inicio_broker", icon: <Home size={20} />, label: "Inicio", roles: ['BROKER', 'ADMINISTRADOR'] },
+    { to: "/cartera", icon: <Briefcase size={20} />, label: "Mi Cartera", roles: ['BROKER'] },
     { to: "/simuladores", icon: <Calculator size={20} />, label: "Simuladores", roles: ['BROKER', 'CLIENTE'] },
     { to: "/agenda", icon: <Calendar size={20} />, label: "Agenda", roles: ['BROKER', 'CLIENTE'] },
     { to: "/perfil", icon: <User size={20} />, label: "Mi perfil", roles: ['ADMINISTRADOR', 'BROKER', 'CLIENTE'] },
@@ -31,18 +34,16 @@ const AppLayout = () => {
         const response = await api.get('/auth/me/');
         setUser(response.data);
       } catch (error) {
-        // Si el interceptor falla (ej. refresh token también expiró) [cite: 2026-03-02]
         if (error.response?.status === 401) {
           navigate('/login');
         }
       } finally {
-        setLoading(false); // 2. Siempre terminamos de cargar
+        setLoading(false);
       }
     };
     fetchProfile();
   }, [navigate]);
 
-  // 3. En lugar de return null, mostramos un spinner elegante [cite: 2026-03-05]
   if (loading) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50">
@@ -52,37 +53,26 @@ const AppLayout = () => {
     );
   }
 
-  // Si después de cargar no hay user (por algún error raro), ahí sí protegemos
   if (!user) return null;
 
   const handleLogout = async () => {
     try {
-      // 1. Obtenemos el token de refresco antes de borrar nada
       const refreshToken = localStorage.getItem('refresh_token');
-
-      // 2. Intentamos invalidarlo en el backend (Lista Negra) [cite: 2026-03-02]
       if (refreshToken) {
-        // Tu instancia 'api' ya debería llevar el Access Token en los headers
         await api.post('/auth/logout/', { refresh: refreshToken });
       }
     } catch (error) {
-      // Si falla (token ya expirado o error de red), lo registramos pero seguimos
       console.warn("No se pudo invalidar el token en el servidor:", error.response?.data || error.message);
     } finally {
-      // 3. LIMPIEZA TOTAL: Esto se ejecuta SIEMPRE [cite: 2026-03-05]
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
-      
-      // 4. Navegación limpia al login
       navigate('/login', { replace: true });
     }
   };
 
-  if (!user) return null;
-
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-      {/* --- SIDEBAR (Barra Lateral) --- */}
+      {/* --- SIDEBAR --- */}
       <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-[#1A4E5E] text-white transition-all duration-300 flex flex-col shadow-xl z-20`}>
         <div className="p-6 flex items-center gap-3 border-b border-[#133A46]">
           <div className="bg-white p-1.5 rounded-lg shrink-0">
@@ -92,7 +82,6 @@ const AppLayout = () => {
         </div>
 
         <nav className="flex-1 mt-6 px-3 space-y-2">
-          {/* 3. FILTRADO DINÁMICO: Solo mostramos lo que el rol permite [cite: 2026-03-02] */}
           {navigation
             .filter(item => item.roles.includes(userRole))
             .map((item) => (
@@ -121,7 +110,6 @@ const AppLayout = () => {
 
       {/* --- CONTENIDO PRINCIPAL --- */}
       <main className="flex-1 flex flex-col min-w-0 relative">
-        {/* --- TOPBAR (Barra Superior) --- */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10">
           <div className="relative w-96 max-w-md hidden md:block">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
@@ -152,7 +140,6 @@ const AppLayout = () => {
                 </div>
               </button>
 
-              {/* Menú desplegable de perfil */}
               {isProfileOpen && (
                 <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 animate-in fade-in zoom-in duration-200">
                   <Link to="/perfil" className="flex items-center gap-3 p-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">
@@ -171,9 +158,8 @@ const AppLayout = () => {
           </div>
         </header>
 
-        {/* --- ÁREA DE PÁGINA ACTUAL (Dashboard, etc.) --- */}
         <div className="flex-1 overflow-y-auto p-8">
-          <Outlet /> {/* Aquí se inyectará el Dashboard o cualquier otra vista [cite: 2026-03-03] */}
+          <Outlet />
         </div>
       </main>
     </div>

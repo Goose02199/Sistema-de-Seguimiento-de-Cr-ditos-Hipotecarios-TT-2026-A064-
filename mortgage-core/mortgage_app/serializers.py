@@ -3,10 +3,25 @@ from .models import LoanApplication, CustomerDocument
 import requests
 import os
 from rest_framework import serializers
-from .models import LoanApplication
+from .models import LoanApplication, BrokerAvailability, Appointment
+
+class AppointmentSerializer(serializers.ModelSerializer):
+    # Agregamos campos de solo lectura para que el cliente vea el contexto
+    meeting_type_display = serializers.CharField(source='get_meeting_type_display', read_only=True)
+    broker_name = serializers.CharField(source='application.broker_assigned.get_full_name', read_only=True)
+
+    class Meta:
+        model = Appointment
+        fields = [
+            'id', 'application', 'meeting_type', 'meeting_type_display', 
+            'location', 'duration_minutes', 'scheduled_at', 'status', 
+            'notes', 'broker_name'
+        ]
+        read_only_fields = ['application', 'status']
 
 class LoanApplicationSerializer(serializers.ModelSerializer):
     broker_info = serializers.SerializerMethodField()
+    appointment = AppointmentSerializer(read_only=True)
     class Meta:
         model = LoanApplication
         fields = '__all__'
@@ -103,3 +118,9 @@ class RiskAssessmentSerializer(serializers.Serializer):
     home_ownership = serializers.ChoiceField(
         choices=["RENT", "OWN", "MORTGAGE", "ANY", "OTHER", "NONE"]
     )
+
+class BrokerAvailabilitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BrokerAvailability
+        fields = ['id', 'date', 'start_time', 'end_time']
+

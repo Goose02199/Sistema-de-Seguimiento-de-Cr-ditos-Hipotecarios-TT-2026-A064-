@@ -2,52 +2,113 @@ import uuid
 import os
 from django.db import models
 from django.conf import settings
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.contrib.postgres.fields import ArrayField
 from django.utils import timezone
+from django.contrib.auth import get_user_model
+from datetime import timedelta
+from django.core.exceptions import ValidationError
+from django.db.models import F, ExpressionWrapper, fields
+
+User = get_user_model()
+
+class BrokerAvailability(models.Model):
+    """
+    Define los bloques de tiempo que un Bróker tiene libres para atender citas.
+    Ejemplo: El lunes 18 de Mayo, de 07:00 a 11:00.
+    """
+    broker_user_id = models.IntegerField(help_text="ID del bróker (Microservicio Identity)", db_index=True)
+    date = models.DateField(help_text="Fecha en la que el bróker está disponible")
+    start_time = models.TimeField(help_text="Hora de inicio del turno")
+    end_time = models.TimeField(help_text="Hora de fin del turno")
+
+    class Meta:
+        verbose_name = 'Disponibilidad de Bróker'
+        verbose_name_plural = 'Disponibilidades de Bróker'
+        # Evita que un bróker registre dos disponibilidades idénticas el mismo día
+        unique_together = ('broker_user_id', 'date', 'start_time', 'end_time') 
+
+    def __str__(self):
+        return f"Bróker ID {self.broker_user_id} libre el {self.date} de {self.start_time} a {self.end_time}"
 
 class Appointment(models.Model):
+    """
+    Representa la cita para cerrar el trámite. 
+    Inicia como una "Configuración/Invitación" y se convierte en una cita real cuando el cliente elige.
+    """
+    MEETING_TYPES = [
+        ('physical', 'Presencial (Sucursal/Oficina)'),
+        ('virtual', 'Virtual (Videollamada)'),
+    ]
+    
     STATUS_CHOICES = [
+        ('pending_client', 'Esperando selección del cliente'),
         ('scheduled', 'Programada'),
         ('completed', 'Completada'),
         ('cancelled', 'Cancelada'),
-        ('rescheduled', 'Reagendada'),
     ]
 
-    # Relación principal: A qué trámite pertenece esta cita
-    application = models.ForeignKey(
+    application = models.OneToOneField(
         'LoanApplication', 
         on_delete=models.CASCADE, 
-        related_name='appointments'
+        related_name='appointment'
     )
     
-    # Fecha y hora exacta de la cita
-    scheduled_at = models.DateTimeField()
-    
-    # Estado actual de la reunión
-    status = models.CharField(
-        max_length=20, 
-        choices=STATUS_CHOICES, 
-        default='scheduled'
+    # --- PARTE 1: Configurada por el Bróker ---
+    meeting_type = models.CharField(max_length=20, choices=MEETING_TYPES, null=True, blank=True)
+    location = models.CharField(
+        max_length=500, 
+        help_text="Dirección física o URL de Zoom/Meet/Teams"
+    )
+    duration_minutes = models.IntegerField(
+        validators=[MinValueValidator(15), MaxValueValidator(180)], 
+        help_text="Duración de la cita. Mínimo 15 mins, Máximo 3 horas.", 
+        null=True,
+        blank=True
     )
 
-    # Ubicación (Puede ser una sucursal física o un enlace de Google Meet/Zoom)
-    location = models.CharField(max_length=255)
+    # --- PARTE 2: Elegida por el Cliente ---
+    # Se llena hasta que el cliente cruza la disponibilidad y hace clic en un bloque
+    scheduled_at = models.DateTimeField(null=True, blank=True)
     
-    # Notas adicionales (ej. "Traer identificación original" o comentarios del cliente)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_client')
     notes = models.TextField(blank=True, null=True)
 
-    # Auditoría de creación
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        ordering = ['scheduled_at']
-        verbose_name = 'Cita'
-        verbose_name_plural = 'Citas'
+    def clean(self):
+        super().clean()
+        
+        if self.status == 'pending_client' and self.duration_minutes:
+            # 1. Obtenemos el ID numérico del bróker
+            broker_id = self.application.assigned_broker_id
+            
+            if not broker_id:
+                raise ValidationError("El trámite debe tener un bróker asignado para agendar.")
+
+            # 2. Buscamos usando broker_id=broker_id
+            availabilities = BrokerAvailability.objects.filter(
+                broker_user_id=broker_id,
+                date__gte=timezone.now().date()
+            ).annotate(
+                block_duration=ExpressionWrapper(
+                    F('end_time') - F('start_time'),
+                    output_field=fields.DurationField()
+                )
+            )
+
+            required_duration = timedelta(minutes=self.duration_minutes)
+            has_valid_slot = availabilities.filter(block_duration__gte=required_duration).exists()
+
+            if not has_valid_slot:
+                raise ValidationError({
+                    'duration_minutes': f"No puedes exigir una cita de {self.duration_minutes} minutos. "
+                                      f"No tienes ningún bloque continuo en tu agenda que sea tan largo. "
+                                      f"Por favor, reduce la duración o amplía tu disponibilidad primero."
+                })
 
     def __str__(self):
-        return f"Cita para {self.application.id} el {self.scheduled_at.strftime('%Y-%m-%d %H:%M')}"
+        return f"Cita {self.get_meeting_type_display()} - Trámite {self.application.id}"
 
 def get_upload_path(instance, filename):
     """

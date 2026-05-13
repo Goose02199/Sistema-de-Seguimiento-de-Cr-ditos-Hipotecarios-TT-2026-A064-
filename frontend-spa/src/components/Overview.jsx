@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
-import { Check, Clock, AlertCircle, Loader2, UploadCloud, ArrowRight, Plus, Minus, User, Mail, Phone } from 'lucide-react';
+import { Check, Clock, AlertCircle, Calendar, Loader2, UploadCloud, ArrowRight, Plus, Minus, User, Mail, Phone } from 'lucide-react';
 
 // 1. Orden cronológico de los estados (Happy Path) para calcular el progreso
 const STATUS_ORDER = [
@@ -307,7 +307,14 @@ const Overview = () => {
           </div>
 
           {/* LOGICA INTELIGENTE DEL BOTÓN */}
-          {['waiting_docs', 'docs_review', 'docs_approved'].includes(currentStatus) ? (
+          {currentStatus === 'waiting_appointment' ? (
+            <button 
+              onClick={() => navigate(`/agendamiento/${application.appointment.id}`)}
+              className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap"
+            >
+              <Calendar size={20} /> Agendar Cita de Firma
+            </button>
+          ) : ['waiting_docs', 'docs_review', 'docs_approved'].includes(currentStatus) ? (
             <button 
               onClick={() => navigate('/documentos')}
               className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap"
@@ -322,6 +329,7 @@ const Overview = () => {
               Gestionar Trámite <ArrowRight size={20} />
             </button>
           )}
+          
         </div>
 
       </div>

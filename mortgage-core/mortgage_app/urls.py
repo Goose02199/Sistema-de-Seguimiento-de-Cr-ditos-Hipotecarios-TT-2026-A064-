@@ -1,5 +1,21 @@
 from django.urls import path
-from .views import RiskAssessmentView, SecureDocumentView, ApplicationDocumentListView, BankRecommendationView, LoanApplicationCreateView, LoanApplicationListView, LoanApplicationDetailView, DocumentDetailView
+from .views import (
+    RiskAssessmentView, 
+    AvailableSlotsView, 
+    SecureDocumentView, 
+    ApplicationDocumentListView, 
+    BankRecommendationView, 
+    LoanApplicationCreateView, 
+    LoanApplicationListView, 
+    LoanApplicationDetailView, 
+    DocumentDetailView, 
+    ScheduleAppointmentView,
+    BrokerScheduleView, 
+    BrokerAvailabilityBulkUpdateView,
+    CreateAppointmentInvitationView,
+    ApplicationAppointmentView,
+    MyAgendaView,
+)
 
 urlpatterns = [
     path('analyze-risk/', RiskAssessmentView.as_view(), name='analyze_risk'),
@@ -10,4 +26,11 @@ urlpatterns = [
     path('applications/<int:application_id>/documents/', ApplicationDocumentListView.as_view(), name='application-documents'),
     path('documents/<uuid:pk>/', DocumentDetailView.as_view(), name='document-detail'),
     path('documents/<uuid:pk>/view/', SecureDocumentView.as_view(), name='document-view-secure'),
+    path('appointments/<int:appointment_id>/slots/', AvailableSlotsView.as_view()),
+    path('appointments/<int:appointment_id>/schedule/', ScheduleAppointmentView.as_view()),
+    path('broker/schedule/', BrokerScheduleView.as_view(), name='broker_schedule'),
+    path('broker/availability/bulk/', BrokerAvailabilityBulkUpdateView.as_view(), name='broker_availability_bulk'),
+    path('appointments/', CreateAppointmentInvitationView.as_view(), name='create_appointment'),
+    path('applications/<int:app_id>/appointment/', ApplicationAppointmentView.as_view()),
+    path('appointments/me/', MyAgendaView.as_view(), name='my_agenda'),
 ]
