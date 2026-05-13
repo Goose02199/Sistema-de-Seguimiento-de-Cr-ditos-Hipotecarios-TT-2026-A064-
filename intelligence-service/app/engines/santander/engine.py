@@ -523,17 +523,6 @@ def cotizar_producto_santander(producto: dict, usuario: dict, tol_mxn: float = 5
     """
     Cotiza un producto Santander (Tradicional, Apoyo, Cofinavit, Free)
     para un usuario dado.
-
-    Flujo:
-    1) Determina la tasa aplicable según el perfil (fn_tasa(usuario)).
-    2) Calcula enganche respetando el mínimo del producto.
-    3) Calcula crédito máximo Santander (aforos).
-    4) Calcula mensualidad "Normal".
-    5) Verifica si cabe en el ingreso del usuario.
-       - Si SÍ: modo = "Normal".
-       - Si NO: intenta 'Rescate por enganche' aumentando el enganche.
-    6) Devuelve un dict con todos los datos para la salida Usuario/Broker,
-       o None si no hay forma de que el crédito sea viable.
     """
     pol = producto.get("politicas", {})
     tipo_producto = pol.get("tipo", producto.get("tipo", ""))
@@ -544,9 +533,7 @@ def cotizar_producto_santander(producto: dict, usuario: dict, tol_mxn: float = 5
     if valor <= 0 or ingreso <= 0:
         return None
 
-    # ---------------------------------
-    # Enganche (respetando mínimo)
-    # ---------------------------------
+    # Enganche
     enganche_min_pct = float(pol.get("enganche_min_pct", 0.10))
     user_pct_e = float(usuario.get("pct_enganche", enganche_min_pct))
 
@@ -554,104 +541,60 @@ def cotizar_producto_santander(producto: dict, usuario: dict, tol_mxn: float = 5
     enganche = round(valor * pct_e_usado, 2)
 
     if user_pct_e < enganche_min_pct:
-        motivo_enganche = (
-            f"Enganche ingresado ({user_pct_e*100:.1f}%) "
-            f"ajustado al mínimo del producto ({enganche_min_pct*100:.0f}%)."
-        )
+        motivo_enganche = f"Enganche ajustado al mínimo del producto ({enganche_min_pct*100:.0f}%)."
     elif user_pct_e > enganche_min_pct:
-        motivo_enganche = (
-            f"Se respetó el enganche ingresado por el usuario ({user_pct_e*100:.1f}%), "
-            f"mayor al mínimo requerido ({enganche_min_pct*100:.0f}%)."
-        )
+        motivo_enganche = f"Se respetó enganche ingresado ({user_pct_e*100:.1f}%)."
     else:
         motivo_enganche = f"Enganche igual al mínimo del producto ({enganche_min_pct*100:.0f}%)."
 
-    # ---------------------------------
-    # Instituto (solo Apoyo / Cofinavit)
-    # ---------------------------------
+    # Instituto
     if tipo_producto in ("apoyo", "cofinavit"):
         nombre_inst, credito_inst, subcuenta = obtener_instituto(usuario, tipo_producto)
     else:
         nombre_inst, credito_inst, subcuenta = ("", 0.0, 0.0)
 
-    # ---------------------------------
-    # Crédito máximo Santander (estructura + aforos)
-    # ---------------------------------
+    # Crédito máximo Santander
     credito_pre = _credito_tope_estructura(
-        valor=valor,
-        enganche=enganche,
-        credito_inst=credito_inst,
-        subcuenta=subcuenta,
-        pol=pol,
-        tipo_producto=tipo_producto,
+        valor=valor, enganche=enganche, credito_inst=credito_inst,
+        subcuenta=subcuenta, pol=pol, tipo_producto=tipo_producto,
     )
     credito_pre = max(0.0, round(credito_pre, 2))
     if credito_pre <= 0:
         return None
 
-    # ---------------------------------
-    # Costos fijos: avalúo, notariales, "gastos de aprobación"
-    # ---------------------------------
+    # Costos fijos y Seguros
     avaluo = avaluo_contra_cfg(valor, pol)
     gastos_not = notariales_contra_cfg(valor, pol)
-    gastos_aprob = float(pol.get("gastos_aprobacion", 0.0))  # si en el futuro lo defines
-
+    gastos_aprob = float(pol.get("gastos_aprobacion", 0.0))
     com_ap_pre = round(credito_pre * float(pol.get("comision_apertura_pct", 0.0)), 2)
-
-    # ---------------------------------
-    # Seguros + comisión admin (adders mensuales)
-    # ---------------------------------
     sa, seg_vida, seg_danos, com_admin = seguros_y_admin(valor, pol)
     adders = seg_vida + seg_danos + com_admin
 
-    # ---------------------------------
-    # Tasa del producto (perfil 1–5) adaptada a BD
-    # ---------------------------------
-    # Llamamos al algoritmo de tus compañeros
+    # Tasa
     perfil = estimar_perfil_santander(usuario) 
-    
-    # Buscamos en el JSON de la base de datos la tasa correspondiente al perfil
     tasa_info = producto.get("tasas_perfil", {}).get(str(perfil), {})
-    
     nombre_tasa = tasa_info.get("nombre", f"Perfil {perfil}")
-    # Nota: Tu BD lo guarda como "tasa" en vez de "tasa_anual_fija"
     tasa_anual = float(tasa_info.get("tasa", 0.0)) 
     tasa_anual_pct = tasa_anual * 100.0
 
-    # ---------------------------------
     # Mensualidad "Normal"
-    # ---------------------------------
     mensualidad = _mensualidad_total(
-        credito=credito_pre,
-        tasa_anual=tasa_anual,
-        plazo=plazo,
-        adders=adders,
-        pol=pol,
-        subcuenta=subcuenta,
-        tipo_producto=tipo_producto,
+        credito=credito_pre, tasa_anual=tasa_anual, plazo=plazo, adders=adders,
+        pol=pol, subcuenta=subcuenta, tipo_producto=tipo_producto,
     )
     ingreso_req = round(ingreso_minimo_requerido(mensualidad, pol), 2)
 
-    # CAT aproximado
     cat = cat_por_tir(
-        credito_banco=credito_pre,
-        avaluo=avaluo,
-        gastos_aprob=gastos_aprob,
-        com_apertura=com_ap_pre,
-        politicas=pol,
-        mensualidad=mensualidad,
-        plazo=plazo,
+        credito_banco=credito_pre, avaluo=avaluo, gastos_aprob=gastos_aprob,
+        com_apertura=com_ap_pre, politicas=pol, mensualidad=mensualidad, plazo=plazo,
     )
     cat_pct = (round(cat * 100, 1) if pd.notna(cat) else np.nan)
 
-    # ---------------------------------
-    # Verificar capacidad de pago (modo Normal)
-    # ---------------------------------
+    # Verificar capacidad de pago
     factor_ir = float(pol.get("relacion_ingreso_mensualidad", 1.82))
     mensualidad_tope = ingreso / factor_ir
 
     if mensualidad <= mensualidad_tope + tol_mxn:
-        # Aforos
         aforo_banco = (credito_pre / valor) if valor > 0 else 0.0
         aforo_inst = (credito_inst / valor) if (valor > 0 and credito_inst > 0) else 0.0
 
@@ -667,9 +610,18 @@ def cotizar_producto_santander(producto: dict, usuario: dict, tol_mxn: float = 5
             "cat_pct": cat_pct,
             "mensualidad": mensualidad,
             "ingreso_req": ingreso_req,
+            "seguro_vida": seg_vida,
+            "seguro_danos": seg_danos,
+            "comision_admin": com_admin,
             "credito_banco": round(credito_pre, 2),
+            "credito_instituto": credito_inst,
+            "subcuenta_vivienda": subcuenta,
             "enganche": enganche,
             "pct_enganche": pct_e_usado,
+            "avaluo": avaluo,
+            "gastos_notariales": gastos_not,
+            "gastos_aprobacion": gastos_aprob,
+            "comision_apertura": com_ap_pre,
             "desembolso_inicial": desembolso_inicial,
             "pago_total_mensualidades": pago_total_mens,
             "costo_total_cliente": costo_total,
@@ -683,63 +635,40 @@ def cotizar_producto_santander(producto: dict, usuario: dict, tol_mxn: float = 5
         }
 
     # =====================================================
-    # Si NO cumple → intentar RESCATE POR ENGANCHE
+    # Si NO cumple → RESCATE POR ENGANCHE
     # =====================================================
     resc = rescate_por_enganche_santander(
-        usuario=usuario,
-        producto=producto,
-        adders=adders,
-        credito_inst=credito_inst,
-        subcuenta=subcuenta,
-        enganche_max_pct=0.30,
-        delta_enganche_pct=0.02,
-        tol_mxn=tol_mxn,
+        usuario=usuario, producto=producto, adders=adders,
+        credito_inst=credito_inst, subcuenta=subcuenta,
+        enganche_max_pct=0.30, delta_enganche_pct=0.02, tol_mxn=tol_mxn,
     )
 
     if resc is None:
-        # No hay forma de que alcance ni con enganche al 30%
         return None
 
-    # Usar el escenario de rescate
     pct_enganche_final = float(resc["pct_enganche_nuevo"])
     enganche_final = float(resc["enganche_nuevo"])
     credito_final = float(resc["credito_max"])
     mensualidad2 = float(resc["mens_compatible"])
     ingreso_req2 = float(resc["ingreso_minimo"])
-    tasa_anual_resc = float(resc["tasa_anual"])
-    tasa_anual_resc_pct = tasa_anual_resc * 100.0
+    tasa_anual_resc_pct = float(resc["tasa_anual"]) * 100.0
 
-    # Recalcular costos asociados al nuevo crédito
     com_ap_final = round(credito_final * float(pol.get("comision_apertura_pct", 0.0)), 2)
 
-    # CAT con escenario de rescate
     cat_resc = cat_por_tir(
-        credito_banco=credito_final,
-        avaluo=avaluo,
-        gastos_aprob=gastos_aprob,
-        com_apertura=com_ap_final,
-        politicas=pol,
-        mensualidad=mensualidad2,
-        plazo=plazo,
+        credito_banco=credito_final, avaluo=avaluo, gastos_aprob=gastos_aprob,
+        com_apertura=com_ap_final, politicas=pol, mensualidad=mensualidad2, plazo=plazo,
     )
     cat_resc_pct = (round(cat_resc * 100, 1) if pd.notna(cat_resc) else np.nan)
 
-    # Desembolso nuevo (enganche distinto, costos fijos iguales)
     desembolso2 = round(enganche_final + avaluo + gastos_not + gastos_aprob, 2)
     pago_total_mens2 = round(mensualidad2 * plazo, 2)
     costo_total2 = round(desembolso2 + pago_total_mens2, 2)
 
-    # Aforos con crédito final
     aforo_banco2 = (credito_final / valor) if valor > 0 else 0.0
     aforo_inst2 = (credito_inst / valor) if (valor > 0 and credito_inst > 0) else 0.0
 
-    if pct_enganche_final > pct_e_usado + 1e-9:
-        nota_rescate = (
-            f"Enganche aumentado de {pct_e_usado*100:.1f}% a "
-            f"{pct_enganche_final*100:.1f}% para cumplir capacidad de pago."
-        )
-    else:
-        nota_rescate = "Parámetros ajustados para cumplir capacidad de pago."
+    nota_rescate = f"Enganche aumentado a {pct_enganche_final*100:.1f}% para cumplir capacidad de pago." if pct_enganche_final > pct_e_usado + 1e-9 else "Ajustado para cumplir capacidad de pago."
 
     return {
         "modo": "Rescate",
@@ -749,9 +678,18 @@ def cotizar_producto_santander(producto: dict, usuario: dict, tol_mxn: float = 5
         "cat_pct": cat_resc_pct,
         "mensualidad": mensualidad2,
         "ingreso_req": ingreso_req2,
+        "seguro_vida": seg_vida,
+        "seguro_danos": seg_danos,
+        "comision_admin": com_admin,
         "credito_banco": round(credito_final, 2),
+        "credito_instituto": credito_inst,
+        "subcuenta_vivienda": subcuenta,
         "enganche": enganche_final,
         "pct_enganche": pct_enganche_final,
+        "avaluo": avaluo,
+        "gastos_notariales": gastos_not,
+        "gastos_aprobacion": gastos_aprob,
+        "comision_apertura": com_ap_final,
         "desembolso_inicial": desembolso2,
         "pago_total_mensualidades": pago_total_mens2,
         "costo_total_cliente": costo_total2,
@@ -830,15 +768,7 @@ def salida_usuario_all(df_all: pd.DataFrame) -> pd.DataFrame:
 
 def salida_broker_all(df_all: pd.DataFrame) -> pd.DataFrame:
     """
-    Salida robusta para broker (todos los campos relevantes de cada cotización).
-    Incluye una fila por cada cotización (producto).
-
-    Orden pensada para análisis rápido:
-    - Identificación
-    - Capacidad de pago
-    - Estructura
-    - Costos
-    - Riesgo / notas
+    Salida robusta para broker. Incluye desglose completo de costos y seguros.
     """
     if df_all is None or df_all.empty:
         return df_all
@@ -850,10 +780,26 @@ def salida_broker_all(df_all: pd.DataFrame) -> pd.DataFrame:
     out["CAT"] = out["cat_pct"].map(lambda x: ("ND" if pd.isna(x) else f"{x:.1f}%"))
     out["Mensualidad"] = out["mensualidad"].map(money)
     out["Ingreso requerido"] = out["ingreso_req"].map(money)
+    
+    # Nuevos campos de desglose mensual
+    if "seguro_vida" in out.columns: out["Seguro de Vida"] = out["seguro_vida"].map(money)
+    if "seguro_danos" in out.columns: out["Seguro de Daños"] = out["seguro_danos"].map(money)
+    if "comision_admin" in out.columns: out["Comisión Admin."] = out["comision_admin"].map(money)
+
+    # Nuevos campos de estructura
     out["Crédito Santander"] = out["credito_banco"].map(money)
+    if "credito_instituto" in out.columns: out["Crédito Instituto"] = out["credito_instituto"].map(money)
+    if "subcuenta_vivienda" in out.columns: out["Subcuenta Vivienda"] = out["subcuenta_vivienda"].map(money)
     out["Enganche"] = out["enganche"].map(money)
     out["% Enganche"] = out["pct_enganche"].map(lambda x: f"{x*100:.2f}%")
+    
+    # Nuevos campos de costos iniciales
     out["Pago inicial"] = out["desembolso_inicial"].map(money)
+    if "avaluo" in out.columns: out["Avalúo"] = out["avaluo"].map(money)
+    if "gastos_notariales" in out.columns: out["Gastos Notariales"] = out["gastos_notariales"].map(money)
+    if "gastos_aprobacion" in out.columns: out["Gastos Aprobación"] = out["gastos_aprobacion"].map(money)
+    if "comision_apertura" in out.columns: out["Comisión Apertura"] = out["comision_apertura"].map(money)
+
     out["Pago total mensualidades"] = out["pago_total_mensualidades"].map(money)
     out["Costo total"] = out["costo_total_cliente"].map(money)
 
@@ -874,29 +820,27 @@ def salida_broker_all(df_all: pd.DataFrame) -> pd.DataFrame:
     }
     out = out.rename(columns=ren)
 
+    # El orden en el que React dibujará las filas de la tabla
     cols = [
         # Identificación
         "Producto", "Nombre tasa", "Tasa", "CAT", "modo",
-        # Capacidad de pago
-        "Mensualidad", "Ingreso requerido",
+        # Desglose Mensual
+        "Mensualidad", "Seguro de Vida", "Seguro de Daños", "Comisión Admin.", "Ingreso requerido",
         # Estructura del financiamiento
-        "Valor Vivienda", "Crédito Santander", "Enganche", "% Enganche",
+        "Valor Vivienda", "Crédito Santander", "Crédito Instituto", "Subcuenta Vivienda", "Enganche", "% Enganche",
         "Aforo Banco", "Aforo Instituto", "Aforo Total",
-        # Costos
-        "Pago inicial", "Pago total mensualidades", "Costo total",
+        # Desglose Pago Inicial
+        "Pago inicial", "Avalúo", "Gastos Notariales", "Gastos Aprobación", "Comisión Apertura",
+        # Totales
+        "Pago total mensualidades", "Costo total",
         "Plazo (meses)",
-        # Nota explicativa
+        # Notas
         "nota_enganche",
-        # Extra: instituto si existe
         "nombre_instituto",
     ]
 
     cols_final = [c for c in cols if c in out.columns]
     return out[cols_final]
-
-# =====================================================
-# Seccion 7: DEMO (USUARIO) Y EJECUCIÓN — SANTANDER
-# =====================================================
 
 # -----------------------------------------------------
 # Ordenador opcional de cotizaciones

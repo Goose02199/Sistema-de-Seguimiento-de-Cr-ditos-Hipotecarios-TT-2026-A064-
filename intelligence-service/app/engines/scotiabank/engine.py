@@ -508,7 +508,7 @@ def _cotizar_scotia_por_banda(producto_cfg, usuario, banda_cfg, tol_mxn=50.0):
 
     tasa_a = float(banda_cfg["tasa_anual_fija"])
     aforo_max = float(banda_cfg["aforo_max"])
-    enganche_min_pct = float(banda_cfg["enganche_min_pct"])
+    enganche_min_pct = float(banda_cfg.get("enganche_min_pct", 0.05))
     incremento_anual = float(banda_cfg.get("incremento_anual_pct", 0.0))
 
     # Enganche del usuario respetando mínimo de la banda
@@ -528,6 +528,9 @@ def _cotizar_scotia_por_banda(producto_cfg, usuario, banda_cfg, tol_mxn=50.0):
     com_ctr = gastos["comision_contratacion"]
     gastos_originacion = gastos["gastos_originacion"]
 
+    # Extraemos explícitamente los seguros para el desglose
+    seg_vida, seg_danos, com_admin = seguros_y_admin_scotia(valor, pol)
+
     # Flujo del producto (Valora o Pagos Oportunos)
     flujo, mensualidad_inicial, pago_base, adders = _flujo_total_scotia(
         credito=credito_pre,
@@ -541,11 +544,8 @@ def _cotizar_scotia_por_banda(producto_cfg, usuario, banda_cfg, tol_mxn=50.0):
 
     # CAT
     cat = cat_por_tir_flujo_variable(
-        credito_banco=credito_pre,
-        avaluo=aval,
-        comision_contratacion=com_ctr,
-        politicas=pol,
-        flujo_mensual=flujo
+        credito_banco=credito_pre, avaluo=aval, comision_contratacion=com_ctr,
+        politicas=pol, flujo_mensual=flujo
     )
     cat_pct = round(cat * 100, 1) if pd.notna(cat) else np.nan
 
@@ -561,57 +561,55 @@ def _cotizar_scotia_por_banda(producto_cfg, usuario, banda_cfg, tol_mxn=50.0):
     mensualidad_tope = ingreso / float(pol["relacion_ir"])
     if mensualidad_inicial <= mensualidad_tope + tol_mxn:
         return {
-    "modo": "Normal",
-    "producto": producto_cfg["nombre"],
-    "tasa_nombre": banda_cfg["nombre"],
-    "tasa_anual_pct": round(tasa_a * 100, 2),
-    "cat_pct": cat_pct,
-    "mensualidad": mensualidad_inicial,
-    "ingreso_req": ingreso_req,
-    "credito_banco": round(credito_pre, 2),
-    "enganche": enganche,
-    "pct_enganche": pct_e_usado,
-    "desembolso_inicial": inversion_cliente,
-    "pago_total_mensualidades": pago_total_mensualidades,
-    "costo_total_cliente": costo_total_cliente,
-    "plazo": plazo,
-    "valor_vivienda": valor,
-    "aforo_pct": round((credito_pre / valor) * 100, 2),
-    "incremento_anual_pct": round(incremento_anual * 100, 2),
-    "pago_millar": pago_millar,
-    "pago_millar_ref": banda_cfg.get("pago_millar_ref", np.nan),
-    "cat_ref_pct": banda_cfg.get("cat_ref_pct", np.nan),
-    "impuestos": imp,
-    "honorarios_notariales": nots,
-    "avaluo": aval,
-    "comision_contratacion": com_ctr,
-    "gastos_originacion": gastos_originacion,
-    "flujo_mensual": flujo,
-    "nota_enganche": (
-        f"Enganche mínimo aplicado: {enganche_min_pct*100:.2f}%. "
-        f"Aforo máximo de la banda: {aforo_max*100:.2f}%. "
-        f"Incremento anual: {incremento_anual*100:.2f}%."
-    )
-}
+            "modo": "Normal",
+            "producto": producto_cfg["nombre"],
+            "tasa_nombre": banda_cfg["nombre"],
+            "tasa_anual_pct": round(tasa_a * 100, 2),
+            "cat_pct": cat_pct,
+            "mensualidad": mensualidad_inicial,
+            "pago_base_credito": pago_base,
+            "seguro_vida": seg_vida,
+            "seguro_danos": seg_danos,
+            "comision_admin": com_admin,
+            "ingreso_req": ingreso_req,
+            "credito_banco": round(credito_pre, 2),
+            "enganche": enganche,
+            "pct_enganche": pct_e_usado,
+            "desembolso_inicial": inversion_cliente,
+            "pago_total_mensualidades": pago_total_mensualidades,
+            "costo_total_cliente": costo_total_cliente,
+            "plazo": plazo,
+            "valor_vivienda": valor,
+            "aforo_pct": round((credito_pre / valor) * 100, 2),
+            "incremento_anual_pct": round(incremento_anual * 100, 2),
+            "pago_millar": pago_millar,
+            "pago_millar_ref": banda_cfg.get("pago_millar_ref", np.nan),
+            "cat_ref_pct": banda_cfg.get("cat_ref_pct", np.nan),
+            "impuestos": imp,
+            "honorarios_notariales": nots,
+            "avaluo": aval,
+            "comision_contratacion": com_ctr,
+            "gastos_originacion": gastos_originacion,
+            "flujo_mensual": flujo,
+            "nota_enganche": (
+                f"Enganche mínimo aplicado: {enganche_min_pct*100:.2f}%. "
+                f"Aforo máximo: {aforo_max*100:.2f}%. "
+                f"Incremento: {incremento_anual*100:.2f}%."
+            )
+        }
 
     # ===========================================
     # RESCATE POR ENGANCHE
     # ===========================================
     out = rescate_por_enganche_scotia(
-        valor_vivienda=valor,
-        enganche_inicial=enganche,
-        ingreso_usuario=ingreso,
-        plazo=plazo,
-        pol=pol,
-        banda_cfg=banda_cfg,
-        tol_mxn=tol_mxn
+        valor_vivienda=valor, enganche_inicial=enganche, ingreso_usuario=ingreso,
+        plazo=plazo, pol=pol, banda_cfg=banda_cfg, tol_mxn=tol_mxn
     )
 
     if out is None:
         return None
 
     sel, _ranking = out
-
     enganche_final = float(sel["enganche_nuevo"])
     pct_enganche_final = float(sel["pct_enganche_nuevo"])
     credito_final = float(sel["credito_max"])
@@ -624,21 +622,14 @@ def _cotizar_scotia_por_banda(producto_cfg, usuario, banda_cfg, tol_mxn=50.0):
     gastos_originacion2 = gastos2["gastos_originacion"]
 
     flujo2, mensualidad_inicial2, pago_base2, adders2 = _flujo_total_scotia(
-        credito=credito_final,
-        tasa_anual=tasa_a,
-        plazo=plazo,
-        pol=pol,
-        incremento_anual=incremento_anual
+        credito=credito_final, tasa_anual=tasa_a, plazo=plazo, pol=pol, incremento_anual=incremento_anual
     )
 
     ingreso_req2 = _ingreso_requerido(mensualidad_inicial2, pol)
 
     cat2 = cat_por_tir_flujo_variable(
-        credito_banco=credito_final,
-        avaluo=aval2,
-        comision_contratacion=com_ctr2,
-        politicas=pol,
-        flujo_mensual=flujo2
+        credito_banco=credito_final, avaluo=aval2, comision_contratacion=com_ctr2,
+        politicas=pol, flujo_mensual=flujo2
     )
     cat2_pct = round(cat2 * 100, 1) if pd.notna(cat2) else np.nan
 
@@ -647,40 +638,44 @@ def _cotizar_scotia_por_banda(producto_cfg, usuario, banda_cfg, tol_mxn=50.0):
     )
 
     pago_millar2 = round((mensualidad_inicial2 / credito_final) * 1000, 2)
+    
     return {
-    "modo": "Rescate",
-    "producto": producto_cfg["nombre"],
-    "tasa_nombre": banda_cfg["nombre"],
-    "tasa_anual_pct": round(tasa_a * 100, 2),
-    "cat_pct": cat2_pct,
-    "mensualidad": mensualidad_inicial2,
-    "ingreso_req": ingreso_req2,
-    "credito_banco": round(credito_final, 2),
-    "enganche": enganche_final,
-    "pct_enganche": pct_enganche_final,
-    "desembolso_inicial": inversion_cliente2,
-    "pago_total_mensualidades": pago_total_mensualidades2,
-    "costo_total_cliente": costo_total_cliente2,
-    "plazo": plazo,
-    "valor_vivienda": valor,
-    "aforo_pct": round((credito_final / valor) * 100, 2),
-    "incremento_anual_pct": round(incremento_anual * 100, 2),
-    "pago_millar": pago_millar2,
-    "pago_millar_ref": banda_cfg.get("pago_millar_ref", np.nan),
-    "cat_ref_pct": banda_cfg.get("cat_ref_pct", np.nan),
-    "impuestos": imp2,
-    "honorarios_notariales": nots2,
-    "avaluo": aval2,
-    "comision_contratacion": com_ctr2,
-    "gastos_originacion": gastos_originacion2,
-    "flujo_mensual": flujo2,
-    "nota_enganche": (
-        f"Rescate aplicado: enganche aumentado a {pct_enganche_final*100:.2f}% "
-        f"para cumplir capacidad de pago. "
-        f"Aforo máximo de la banda: {aforo_max*100:.2f}%. "
-        f"Incremento anual: {incremento_anual*100:.2f}%."
-    )
-}
+        "modo": "Rescate",
+        "producto": producto_cfg["nombre"],
+        "tasa_nombre": banda_cfg["nombre"],
+        "tasa_anual_pct": round(tasa_a * 100, 2),
+        "cat_pct": cat2_pct,
+        "mensualidad": mensualidad_inicial2,
+        "pago_base_credito": pago_base2,
+        "seguro_vida": seg_vida,
+        "seguro_danos": seg_danos,
+        "comision_admin": com_admin,
+        "ingreso_req": ingreso_req2,
+        "credito_banco": round(credito_final, 2),
+        "enganche": enganche_final,
+        "pct_enganche": pct_enganche_final,
+        "desembolso_inicial": inversion_cliente2,
+        "pago_total_mensualidades": pago_total_mensualidades2,
+        "costo_total_cliente": costo_total_cliente2,
+        "plazo": plazo,
+        "valor_vivienda": valor,
+        "aforo_pct": round((credito_final / valor) * 100, 2),
+        "incremento_anual_pct": round(incremento_anual * 100, 2),
+        "pago_millar": pago_millar2,
+        "pago_millar_ref": banda_cfg.get("pago_millar_ref", np.nan),
+        "cat_ref_pct": banda_cfg.get("cat_ref_pct", np.nan),
+        "impuestos": imp2,
+        "honorarios_notariales": nots2,
+        "avaluo": aval2,
+        "comision_contratacion": com_ctr2,
+        "gastos_originacion": gastos_originacion2,
+        "flujo_mensual": flujo2,
+        "nota_enganche": (
+            f"Rescate aplicado: enganche aumentado a {pct_enganche_final*100:.2f}%. "
+            f"Aforo máximo: {aforo_max*100:.2f}%. "
+            f"Incremento: {incremento_anual*100:.2f}%."
+        )
+    }
 
 def generar_cotizaciones_scotia(producto_cfg, usuario, tol_mxn=50.0):
     todas = []
@@ -754,6 +749,13 @@ def salida_broker_all(df_all: pd.DataFrame) -> pd.DataFrame:
     out["Tasa"] = out["tasa_anual_pct"].map(lambda x: f"{x:.2f}%")
     out["CAT"] = out["cat_pct"].map(lambda x: "ND" if pd.isna(x) else f"{x:.1f}%")
     out["Mensualidad inicial"] = out["mensualidad"].map(money)
+    
+    # Nuevos campos de desglose mensual
+    if "pago_base_credito" in out.columns: out["Pago a Capital e Intereses"] = out["pago_base_credito"].map(money)
+    if "seguro_vida" in out.columns: out["Seguro de Vida"] = out["seguro_vida"].map(money)
+    if "seguro_danos" in out.columns: out["Seguro de Daños"] = out["seguro_danos"].map(money)
+    if "comision_admin" in out.columns: out["Comisión Admin."] = out["comision_admin"].map(money)
+    
     out["Ingreso requerido"] = out["ingreso_req"].map(money)
     out["Crédito Banco"] = out["credito_banco"].map(money)
     out["Enganche"] = out["enganche"].map(money)
@@ -780,15 +782,18 @@ def salida_broker_all(df_all: pd.DataFrame) -> pd.DataFrame:
     })
 
     cols = [
-        "Producto", "Escenario / Banda", "Modo",
-        "Tasa", "CAT",
-        "Mensualidad inicial", "Ingreso requerido",
+        # Identificación
+        "Producto", "Escenario / Banda", "Modo", "Tasa", "CAT",
+        # Desglose Mensualidad
+        "Mensualidad inicial", "Pago a Capital e Intereses", "Seguro de Vida", "Seguro de Daños", "Comisión Admin.", "Ingreso requerido",
+        # Estructura del crédito
         "Valor vivienda", "Crédito Banco", "Enganche", "% Enganche", "Aforo",
+        # Indicadores Scotiabank
         "Incremento anual", "Pago al millar", "Pago al millar ref",
-        "Impuestos y derechos", "Honorarios notariales", "Avalúo",
-        "Comisión contratación", "Gastos originación",
-        "Pago inicial", "Pago total mensualidades", "Costo total",
-        "Plazo (meses)", "nota_enganche"
+        # Desglose Pago Inicial
+        "Pago inicial", "Gastos originación", "Impuestos y derechos", "Honorarios notariales", "Avalúo", "Comisión contratación", 
+        # Totales
+        "Pago total mensualidades", "Costo total", "Plazo (meses)", "nota_enganche"
     ]
 
     return out[cols]
