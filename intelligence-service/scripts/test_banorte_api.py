@@ -91,7 +91,7 @@ def probar_cotizador():
         print("\n=== VISTA DETALLADA (PARA EL BRÓKER) ===")
         # Imprimimos solo la primera del broker para que veas el nivel de detalle
         if cotizaciones_broker:
-            print(json.dumps(cotizaciones_broker[0], indent=2, ensure_ascii=False))
+            print(json.dumps(cotizaciones_broker, indent=2, ensure_ascii=False))
             
     except requests.exceptions.HTTPError as err:
         print("\n❌ ERROR HTTP:")

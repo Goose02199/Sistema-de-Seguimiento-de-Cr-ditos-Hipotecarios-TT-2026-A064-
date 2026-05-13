@@ -159,7 +159,7 @@ def probar_cotizador_scotia():
             
         print("\n=== VISTA DETALLADA (BRÓKER - ESCENARIO 1) ===")
         if cotizaciones_broker:
-            print(json.dumps(cotizaciones_broker[0], indent=2, ensure_ascii=False))
+            print(json.dumps(cotizaciones_broker, indent=2, ensure_ascii=False))
             
     except requests.exceptions.HTTPError as err:
         print("\n❌ ERROR HTTP:")
