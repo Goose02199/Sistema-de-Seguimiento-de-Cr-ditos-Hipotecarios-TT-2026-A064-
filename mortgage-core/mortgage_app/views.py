@@ -436,6 +436,31 @@ class LoanApplicationCreateView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class LoanApplicationInitializeView(APIView):
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({"error": "user_id es requerido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Buscamos si ya existe una solicitud
+        application = LoanApplication.objects.filter(user_id=user_id).first()
+
+        if not application:
+            # Creamos el registro con los campos mínimos obligatorios del modelo
+            application = LoanApplication.objects.create(
+                user_id=user_id,
+                status='draft',
+                first_name="Borrador",
+                last_name="En Proceso",
+                # NOTA: monthly_income NO existe en el modelo, usamos annual_inc
+                annual_inc=0, 
+                loan_amnt=0,   # Este campo es NOT NULL en tu modelo
+                # Los demás campos tienen default=0 o null=True, así que no hay problema
+            )
+            return Response(LoanApplicationSerializer(application).data, status=status.HTTP_201_CREATED)
+        
+        return Response(LoanApplicationSerializer(application).data, status=status.HTTP_200_OK)
+
 class AvailableSlotsView(APIView):
     """
     Calcula dinámicamente los huecos disponibles para una cita específica,

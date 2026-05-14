@@ -371,6 +371,9 @@ const CheckItem = ({ met, text }) => (
 const EditableField = ({ label, name, register, isEditing, defaultValue, errors, rules, type = "text" }) => {
   const housingLabels = { 'RENT': 'Renta', 'OWN': 'Propia', 'MORTGAGE': 'Hipotecada', 'FAMILY': 'Familiar', 'OTHER': 'Otro', 'None': 'Ninguno' };
 
+  // Definimos qué campos son calculados/bloqueados
+  const isReadOnly = name === "state" || name === "municipality";
+
   return (
     <div>
       <label className="block text-xs font-bold text-slate-400 uppercase mb-1">{label}</label>
@@ -378,17 +381,23 @@ const EditableField = ({ label, name, register, isEditing, defaultValue, errors,
         <>
           {name === "housing_status" ? (
             <select {...register(name, rules)} defaultValue={defaultValue} className="w-full p-2 border border-slate-200 rounded-lg outline-none bg-white">
-              <option value="RENT">Renta</option><option value="OWN">Propia</option><option value="MORTGAGE">Hipotecada</option><option value="FAMILY">Familiar</option>
-            </select>
-          ) : name === "municipality" ? (
-            <select {...register(name, rules)} className="w-full p-2 border border-slate-200 rounded-lg outline-none bg-white">
-              {Object.values(CP_ALCALDIAS).map(alc => <option key={alc} value={alc}>{alc}</option>)}
+              <option value="RENT">Renta</option>
+              <option value="OWN">Propia</option>
+              <option value="MORTGAGE">Hipotecada</option>
+              <option value="FAMILY">Familiar</option>
             </select>
           ) : (
             <input 
-              type={type} {...register(name, rules)} defaultValue={defaultValue}
-              readOnly={name === "state"}
-              className={`w-full p-2 border rounded-lg outline-none ${name === "state" ? "bg-slate-100 text-slate-500" : "bg-white"} ${errors?.[name] ? "border-red-500" : "border-slate-200"}`} 
+              type={type} 
+              {...register(name, rules)} 
+              defaultValue={defaultValue}
+              readOnly={isReadOnly}
+              placeholder={isReadOnly ? "Se calculará con el CP" : ""}
+              className={`w-full p-2 border rounded-lg outline-none transition-colors ${
+                isReadOnly 
+                  ? "bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200" 
+                  : "bg-white border-slate-200 focus:ring-2 focus:ring-[#1A4E5E]"
+              } ${errors?.[name] ? "border-red-500" : ""}`} 
             />
           )}
           {errors?.[name] && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors[name].message}</p>}

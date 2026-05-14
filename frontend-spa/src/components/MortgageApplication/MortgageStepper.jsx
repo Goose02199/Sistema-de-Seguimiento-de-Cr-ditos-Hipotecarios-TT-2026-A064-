@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import api from '../../api/api';
 import { 
   User, Briefcase, Calculator, Home, History, 
-  ChevronRight, ChevronLeft, Loader2, CheckCircle2 
+  ChevronRight, ChevronLeft, Loader2, CheckCircle2, PiggyBank 
 } from 'lucide-react';
 
 // Importaremos los sub-pasos (que crearemos a continuación)
@@ -24,6 +24,7 @@ const MortgageStepper = () => {
   const [result, setResult] = useState(null);
   const [sentData, setSentData] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
   
   const { register, handleSubmit, watch, setValue, reset, formState: { errors }, trigger } = useForm({
     defaultValues: {
@@ -84,51 +85,123 @@ const MortgageStepper = () => {
     }
   });
 
+  const clearDraft = () => {
+    if (window.confirm("¿Seguro que quieres borrar el borrador y empezar de nuevo?")) {
+      localStorage.removeItem(CACHE_KEY);
+      reset(); // Resetea a defaultValues
+      setCurrentStep(0);
+      window.location.reload(); // Para asegurar limpieza total de estados
+    }
+  };
+
+  const saveManualDraft = () => {
+    setSaveStatus('saving');
+    const currentData = watch();
+    const cacheData = {
+      formData: currentData,
+      step: currentStep
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+    
+    // Efecto visual de éxito
+    setTimeout(() => {
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(null), 3000);
+    }, 600);
+  };
+
+  // Dentro de MortgageStepper, después de definir useForm...
+  const CACHE_KEY = `mortgage_draft_${user?.id || 'guest'}`;
+
+  useEffect(() => {
+    // Solo guardamos en caché si el usuario está llenando el formulario (pasos 0 a 4)
+    if (currentStep >= 5) return; 
+
+    const subscription = watch((value) => {
+      const cacheData = {
+        formData: value,
+        step: currentStep
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, currentStep, CACHE_KEY]);
+
   useEffect(() => {
     const initStepper = async () => {
       try {
-        // 1. Obtener datos del perfil
+        // 1. Cargamos al usuario (Perfil)
         const userResponse = await api.get(`/auth/me/`);
         const userData = userResponse.data;
         setUser(userData);
 
-        // 2. Verificar si ya existe una solicitud para este usuario
+        // Objeto base con datos del perfil (Lo que tú llamabas initialData)
+        const profileDefaults = {
+          first_name: userData.first_name || '',
+          last_name: userData.last_name || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          rfc_curp: userData.curp_rfc || '',
+          birth_date: userData.birth_date || '',
+          home_ownership: userData.housing_status || 'RENT',
+          address: userData.address || '',
+          postal_code: userData.postal_code || '',
+          state: userData.state || '',
+          municipality: userData.municipality || '',
+        };
+
+        let applicationData = null;
+
         try {
+          // 2. Buscamos si ya existe una solicitud en la DB
           const appResponse = await api.get(`/mortgage/applications/?user_id=${userData.id}`);
-          
-          if (appResponse.data && appResponse.data.id) {
-            // SI EXISTE: Saltamos al resumen y cargamos los datos
-            const existingApp = appResponse.data;
-
-            const hydratedData = {
-              ...existingApp,
-              monthly_income: existingApp.annual_inc ? (existingApp.annual_inc / 12).toFixed(2) : 0,
-            };
-
-            setResult(existingApp);
-            setSentData(hydratedData); 
-            setCurrentStep(5); 
-            reset(hydratedData);
-          }else {
-            // Si la respuesta no tiene ID (ej. es un HTML de redirect), forzamos el formulario
-            throw new Error("Respuesta inválida");
-          }
+          applicationData = appResponse.data;
         } catch (appError) {
-          // Si es 404 (No encontrada), cargamos los defaults del perfil para una nueva
+          // 3. Si no existe (404), inicializamos el borrador en la nueva vista del backend
           if (appError.response?.status === 404) {
-            reset({
-              first_name: userData.first_name || '',
-              last_name: userData.last_name || '',
-              email: userData.email || '',
-              phone: userData.phone || '',
-              rfc_curp: userData.curp_rfc || '',
-              birth_date: userData.birth_date || '',
-              home_ownership: userData.housing_status || 'RENT',
-              address: userData.address || '',
-              postal_code: userData.postal_code || '',
-              state: userData.state || '',
-              municipality: userData.municipality || '',
+            const initRes = await api.post('/mortgage/applications/initialize/', { 
+              user_id: userData.id 
             });
+            applicationData = initRes.data;
+          }
+        }
+
+        if (applicationData) {
+          setResult(applicationData);
+          setSentData(applicationData);
+
+          // 1. Calculamos el ingreso mensual (que solo existe en React)
+          const monthlyFromDB = applicationData.annual_inc ? (parseFloat(applicationData.annual_inc) / 12).toFixed(2) : 0;
+          
+          const savedDraft = localStorage.getItem(`mortgage_draft_${userData.id}`);
+          
+          // 2. Definimos la base: lo que hay en la DB
+          // 3. Encima ponemos el perfil (para que "Borrador" cambie por el nombre real)
+          // 4. Encima el caché (lo último que escribió el usuario)
+          
+          if (applicationData.status !== 'draft') {
+            // CASO A: La solicitud ya se envió (IA o Broker)
+            // Ignoramos y borramos el caché local porque la DB es la única verdad
+            localStorage.removeItem(`mortgage_draft_${userData.id}`);
+            reset({ ...applicationData, monthly_income: monthlyFromDB });
+            setCurrentStep(5);
+          } 
+          else if (savedDraft) {
+            // CASO B: Sigue en borrador y hay caché local
+            const { formData, step } = JSON.parse(savedDraft);
+            const mergedData = { 
+              ...applicationData, 
+              ...profileDefaults, 
+              monthly_income: monthlyFromDB,
+              ...formData // El caché gana solo si es DRAFT
+            };
+            reset(mergedData);
+            setCurrentStep(step);
+          } 
+          else {
+            // CASO C: Borrador nuevo sin caché
+            reset({ ...applicationData, ...profileDefaults, monthly_income: monthlyFromDB });
+            setCurrentStep(0);
           }
         }
       } catch (error) {
@@ -201,47 +274,28 @@ const MortgageStepper = () => {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-        // 1. Transformación de datos según especificaciones técnicas
         const processedData = {
             ...data,
-            // Unión de identidad: Nombres + Apellidos [cite: 6]
             full_name: `${data.first_name} ${data.last_name}`.trim(),
-            
-            // Cálculo de Ingreso Anual para el modelo XGBoost (Mensual * 12) [cite: 25, 30]
             annual_inc: parseFloat(data.monthly_income) * 12,
-            
-            // Asegurar tipos de datos numéricos para los modelos de ML [cite: 3, 24]
             loan_amnt: parseFloat(data.loan_amnt),
             property_value: parseFloat(data.property_value),
             installment: parseFloat(data.installment),
-
-            institute_credit_amount: parseFloat(data.institute_credit_amount) || 0,
-            housing_subaccount: parseFloat(data.housing_subaccount) || 0,
-            settlement_amount: parseFloat(data.settlement_amount) || 0,
-            settlement_count: parseInt(data.settlement_count) || 0,
-            
-            // Asociación del usuario autenticado
+            status: 'sent_awaiting_ia', // Cambiamos el status para disparar la IA
             user_id: user.id 
         };
 
-        setSentData({
-          ...processedData,
-          monthly_income: data.monthly_income 
-        });
+        // Como el registro se crea al entrar (init), aquí siempre es PATCH
+        const response = await api.patch(`/mortgage/applications/`, processedData);
 
-        // DECISIÓN: ¿POST o PATCH?
-        // Si result existe, usamos PATCH para actualizar la solicitud #ID
-        const method = result ? 'patch' : 'post';
-        // 3. Envío al microservicio Core (Puerto 8001 vía Gateway)
-        const response = await api[method]('/mortgage/applications/', processedData);
-        
-        // 4. Persistencia de resultados de IA (Riesgo y Recomendación) [cite: 61, 64]
+        localStorage.removeItem(CACHE_KEY);
         setResult(response.data);
-        setCurrentStep(5); // Ir a vista de éxito/resultados
+        setSentData(response.data);
+        setCurrentStep(5);
 
     } catch (error) {
         console.error("Error al procesar solicitud:", error.response?.data);
-        const errorMsg = error.response?.data?.detail || "Hubo un error al procesar tu crédito. Revisa los datos.";
+        const errorMsg = error.response?.data?.error || "Error al procesar tu crédito.";
         alert(errorMsg);
     } finally {
         setIsSubmitting(false);
@@ -317,6 +371,7 @@ const MortgageStepper = () => {
             errors={errors} 
             setValue={setValue} 
             watch={watch} 
+            status={result?.status}
           />
         )}
         {currentStep === 1 && ( 
@@ -373,6 +428,23 @@ const MortgageStepper = () => {
             </button>
           )}
           
+          {currentStep < 5 && (
+            <button
+              type="button"
+              onClick={saveManualDraft}
+              className="text-xs font-bold text-[#1A4E5E] hover:bg-slate-50 px-3 py-2 rounded-lg border border-dashed border-slate-300 flex items-center gap-2 transition-all"
+            >
+              {saveStatus === 'saving' ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : saveStatus === 'saved' ? (
+                <CheckCircle2 size={14} className="text-green-500" />
+              ) : (
+                <PiggyBank size={14} /> 
+              )}
+              {saveStatus === 'saved' ? '¡Progreso a salvo!' : 'Guardar Borrador'}
+            </button>
+          )}
+
           <div className="ml-auto">
             {currentStep < 4 ? (
               <button

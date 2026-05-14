@@ -8,9 +8,10 @@ const CP_ALCALDIAS = {
   '13': 'Xochimilco', '14': 'Tlalpan', '15': 'Venustiano Carranza', '16': 'Milpa Alta'
 };
 
-const Step1Identity = ({ register, errors, setValue, watch }) => {
+const Step1Identity = ({ register, errors, setValue, watch, status }) => {
 
   const postalCodeValue = watch("postal_code");
+  const isCpLocked = status === "broker_assigned";
 
   // Efecto para autocompletar Estado y Municipio basado en CP
   useEffect(() => {
@@ -128,30 +129,33 @@ const Step1Identity = ({ register, errors, setValue, watch }) => {
           <div className="relative">
             <MapPin className="absolute right-3 top-2.5 text-gray-400" size={18} />
             <input 
-              {...register("postal_code", { 
-                required: "Requerido",
-                pattern: { 
-                  value: /^(0[1-9]|1[0-6])\d{3}$/, 
-                  message: "Solo se permiten CPs de CDMX (01xxx a 16xxx)" 
-                }
-              })}
-              className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
-              placeholder="Ej. 07738"
-            />
+            //readOnly={isCpLocked} // Bloquea la edición si se cumple la condición
+            {...register("postal_code", { 
+              required: "Requerido",
+              pattern: { 
+                value: /^(0[1-9]|1[0-6])\d{3}$/, 
+                message: "Solo se permiten CPs de CDMX (01xxx a 16xxx)" 
+              }
+            })}
+            className={`mt-1 block w-full p-2 border rounded-md transition-colors ${
+              isCpLocked 
+                ? 'bg-gray-100 cursor-not-allowed text-gray-500 border-gray-200' 
+                : 'border-gray-300 focus:ring-[#1A4E5E] focus:border-[#1A4E5E]'
+            }`}
+            placeholder="Ej. 07738"
+          />
           </div>
           {errors.postal_code && <p className="text-red-500 text-[10px] mt-1">{errors.postal_code.message}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Municipio / Alcaldía</label>
-          <select 
-            {...register("municipality", { required: "Seleccione alcaldía" })}
-            className="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-white"
-          >
-            <option value="">Seleccione...</option>
-            {Object.values(CP_ALCALDIAS).map(alc => (
-              <option key={alc} value={alc}>{alc}</option>
-            ))}
-          </select>
+          <input 
+            readOnly
+            {...register("municipality", { required: "Este campo se llena automáticamente con el CP" })}
+            className="mt-1 block w-full p-2 border border-gray-200 bg-gray-50 text-gray-500 rounded-md cursor-not-allowed"
+            placeholder="Se llenará al ingresar el CP"
+          />
+          {errors.municipality && <p className="text-red-500 text-[10px] mt-1">{errors.municipality.message}</p>}
         </div>
       </div>
 
@@ -174,7 +178,7 @@ const Step1Identity = ({ register, errors, setValue, watch }) => {
             <option value="RENT">Renta</option>
             <option value="OWN">Propia</option>
             <option value="MORTGAGE">Hipotecada</option>
-            <option value="FAMILY">Familiar</option>
+            <option value="OTHER">Otro</option>
           </select>
         </div>
       </div>
