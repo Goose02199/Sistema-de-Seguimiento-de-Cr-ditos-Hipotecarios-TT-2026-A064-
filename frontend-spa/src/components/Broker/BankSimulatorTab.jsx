@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Landmark, RefreshCw, AlertCircle, CheckCircle2, SlidersHorizontal, 
-  ChevronDown, ChevronUp, Maximize2, X, RotateCcw, PanelLeftClose, PanelRightOpen 
+  ChevronDown, ChevronUp, Maximize2, X, RotateCcw, PanelLeftClose, PanelRightOpen, 
+  ThumbsDown, ThumbsUp, PlusCircle, Send, Check, Eye
 } from 'lucide-react';
 import api from '../../api/api';
 
-const BankSimulatorTab = ({ app }) => {
+const BankSimulatorTab = ({ app, onStatusUpdate }) => {
   const parseNum = (val, fallback = 0) => {
     const n = parseFloat(val);
     return isNaN(n) ? fallback : n;
@@ -31,9 +32,37 @@ const BankSimulatorTab = ({ app }) => {
   const [results, setResults] = useState({ banorte: null, santander: null, scotiabank: null });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  
-  // ESTADO DE UI
+  const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
   const [isParamsOpen, setIsParamsOpen] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [selectedQuotes, setSelectedQuotes] = useState(app.selected_quotes || []);
+  const isSelectionMode = app.status === 'quote_approved';
+
+  // --- NUEVAS FUNCIONES ---
+  const updateApplicationStatus = async (newStatus, extraPayload = {}) => {
+    setActionLoading(true);
+    try {
+      await api.patch(`/mortgage/applications/${app.id}/`, {
+        status: newStatus,
+        ...extraPayload
+      });
+      if (onStatusUpdate) onStatusUpdate(); // Refresca la vista padre
+    } catch (err) {
+      console.error("Error actualizando status", err);
+      alert("Hubo un error al actualizar el trámite.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleQuoteSelection = (bankName, scenario) => {
+    const quoteId = `${bankName}-${scenario['Nombre tasa'] || scenario['Escenario / Banda']}`;
+    setSelectedQuotes(prev => {
+      const exists = prev.find(q => q.id === quoteId);
+      if (exists) return prev.filter(q => q.id !== quoteId);
+      return [...prev, { id: quoteId, banco: bankName, data: scenario }];
+    });
+  };
 
   // MANEJADOR GLOBAL DE CAMBIOS
   const handleChange = (e) => {
@@ -124,6 +153,39 @@ const BankSimulatorTab = ({ app }) => {
   return (
     <div className={`grid grid-cols-1 ${isParamsOpen ? 'xl:grid-cols-4' : 'xl:grid-cols-1'} gap-6 animate-in fade-in duration-500`}>
       
+        {/* 1. BARRA DE HERRAMIENTAS DEL BRÓKER (WORKFLOW) */}
+        <div className={`col-span-1 ${isParamsOpen ? 'xl:col-span-4' : 'xl:col-span-1'} bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4`}>
+            <div>
+            <h3 className="font-black text-[#1A4E5E] text-lg">Panel de Gestión de Oferta</h3>
+            <p className="text-xs text-slate-500 font-medium">Ajusta los parámetros, evalúa el riesgo financiero y arma tu propuesta.</p>
+            </div>
+
+            <div className="flex gap-3">
+            {app.status === 'reviewing_quote' && (
+                <>
+                <button disabled={actionLoading} onClick={() => updateApplicationStatus('quote_rejected_broker')} className="flex items-center gap-2 px-5 py-2 border-2 border-rose-100 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl font-bold transition-all text-sm">
+                    <ThumbsDown size={16} /> Rechazar Trámite
+                </button>
+                <button disabled={actionLoading} onClick={() => updateApplicationStatus('quote_approved')} className="flex items-center gap-2 px-5 py-2 bg-[#1A4E5E] text-white hover:bg-[#133a46] rounded-xl font-bold transition-all shadow-md text-sm">
+                    <ThumbsUp size={16} /> Aprobar Viabilidad
+                </button>
+                </>
+            )}
+
+            {app.status === 'quote_approved' && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                <AlertCircle size={16} /> Selecciona las cotizaciones abajo para armar la propuesta
+                </div>
+            )}
+
+            {['waiting_client_approval', 'quote_rejected_client', 'waiting_docs'].includes(app.status) && (
+                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                <CheckCircle2 size={16} /> Propuesta enviada al cliente ({app.selected_quotes?.length || 0} opciones)
+                </div>
+            )}
+            </div>
+        </div>
+
       {/* PANEL DE CONTROLES CONTRAÍBLE */}
       {isParamsOpen && (
         <div className="xl:col-span-1 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm h-fit sticky top-6 animate-in slide-in-from-left-4 duration-300">
@@ -228,11 +290,134 @@ const BankSimulatorTab = ({ app }) => {
         </div>
 
         <div className={`grid grid-cols-1 md:grid-cols-2 ${isParamsOpen ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-6`}>
-          <BankCard bankName="Banorte" themeColor="border-red-500" headerBg="bg-red-50" data={results.banorte} error={errors.banorte} loading={loading} />
-          <BankCard bankName="Santander" themeColor="border-red-600" headerBg="bg-red-50" data={results.santander} error={errors.santander} loading={loading} />
-          <BankCard bankName="Scotiabank" themeColor="border-red-700" headerBg="bg-red-50" data={results.scotiabank} error={errors.scotiabank} loading={loading} />
+          <BankCard 
+            bankName="Banorte" themeColor="border-red-500" headerBg="bg-red-50" data={results.banorte} error={errors.banorte} loading={loading} 
+            isSelectionMode={isSelectionMode} selectedQuotes={selectedQuotes} onToggleQuote={toggleQuoteSelection}
+          />
+          <BankCard 
+            bankName="Santander" themeColor="border-red-600" headerBg="bg-red-50" data={results.santander} error={errors.santander} loading={loading} 
+            isSelectionMode={isSelectionMode} selectedQuotes={selectedQuotes} onToggleQuote={toggleQuoteSelection}
+          />
+          <BankCard 
+            bankName="Scotiabank" themeColor="border-red-700" headerBg="bg-red-50" data={results.scotiabank} error={errors.scotiabank} loading={loading} 
+            isSelectionMode={isSelectionMode} selectedQuotes={selectedQuotes} onToggleQuote={toggleQuoteSelection}
+          />
         </div>
       </div>
+      {/* BARRA FLOTANTE INFERIOR (CUANDO ESTÁ ARMANDO LA PROPUESTA) */}
+      {isSelectionMode && selectedQuotes.length > 0 && createPortal(
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl z-[9000] flex items-center gap-6 animate-in slide-in-from-bottom-10">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#1A4E5E] w-8 h-8 rounded-full flex items-center justify-center font-black text-sm">
+              {selectedQuotes.length}
+            </div>
+            <p className="font-medium text-sm hidden md:block">Escenarios en propuesta</p>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setIsProposalModalOpen(true)}
+              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-full font-bold transition-colors text-sm"
+            >
+              <Eye size={16} /> Ver Resumen
+            </button>
+            <button 
+              disabled={actionLoading}
+              onClick={() => updateApplicationStatus('waiting_client_approval', { selected_quotes: selectedQuotes })}
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-full font-black transition-colors text-sm"
+            >
+              <Send size={16} /> Enviar Propuesta
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* --- MODAL DE RESUMEN DE LA PROPUESTA --- */}
+      {isProposalModalOpen && selectedQuotes.length > 0 && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            <div className="p-4 sm:p-6 flex justify-between items-center border-b border-slate-200 bg-slate-50 shrink-0">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                  <Landmark size={24} className="text-[#1A4E5E]" /> Resumen de la Propuesta
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Estás a punto de enviar estas {selectedQuotes.length} opciones al cliente.
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsProposalModalOpen(false)}
+                className="p-2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors shadow-sm border border-slate-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-auto flex-1 p-4 sm:p-6 custom-scrollbar bg-slate-50/30">
+              <table className="w-full text-left border-collapse bg-white rounded-xl shadow-sm border border-slate-200">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="p-3 sm:p-4 text-xs uppercase font-black text-[#1A4E5E] sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                      Característica
+                    </th>
+                    {selectedQuotes.map((quote, idx) => (
+                      <th key={idx} className="p-3 sm:p-4 text-xs uppercase font-bold whitespace-nowrap min-w-[160px] text-center border-l border-slate-100 text-[#1A4E5E] bg-slate-50/50">
+                        <span className="block text-[10px] text-slate-400 mb-1">{quote.banco}</span>
+                        {quote.data['Nombre tasa'] || quote.data['Escenario / Banda']}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="text-xs text-slate-700">
+                  {[
+                    { label: 'Mensualidad', keys: ['Mensualidad inicial', 'Mensualidad'] },
+                    { label: 'Tasa Aplicada', keys: ['Tasa'] },
+                    { label: 'CAT', keys: ['CAT'] },
+                    { label: 'Monto a Financiar', keys: ['Crédito Banorte', 'Crédito Santander', 'Crédito Banco'] },
+                    { label: 'Pago Inicial', keys: ['Pago inicial'] },
+                    { label: 'Plazo (Meses)', keys: ['Plazo (meses)'] },
+                  ].map((row) => (
+                    <tr key={row.label} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td className="p-3 sm:p-4 font-bold text-slate-500 sticky left-0 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] border-r border-slate-100">
+                        {row.label}
+                      </td>
+                      {selectedQuotes.map((quote, idx) => {
+                        // Buscamos inteligentemente cuál de las llaves posibles tiene este banco
+                        const value = row.keys.reduce((acc, currentKey) => acc || quote.data[currentKey], null);
+                        return (
+                          <td key={idx} className="p-3 sm:p-4 font-black text-center border-l border-slate-100 text-slate-800">
+                            {value !== null && value !== undefined ? value : '-'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
+              <button 
+                onClick={() => setIsProposalModalOpen(false)}
+                className="px-6 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-lg hover:bg-slate-100 transition-colors text-sm"
+              >
+                Seguir Editando
+              </button>
+              <button 
+                disabled={actionLoading}
+                onClick={() => {
+                  setIsProposalModalOpen(false);
+                  updateApplicationStatus('waiting_client_approval', { selected_quotes: selectedQuotes });
+                }}
+                className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black rounded-lg transition-colors text-sm flex items-center gap-2"
+              >
+                <Send size={16} /> Confirmar y Enviar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
@@ -306,7 +491,7 @@ const SliderWithInput = ({ label, name, value, min, max, step, onChange, isPerce
 
 /* --- EL RESTO DEL COMPONENTE BANKCARD SE QUEDA IGUAL --- */
 
-const BankCard = ({ bankName, themeColor, headerBg, data, error, loading }) => {
+const BankCard = ({ bankName, themeColor, headerBg, data, error, loading, isSelectionMode, selectedQuotes, onToggleQuote }) => {
   const [expanded, setExpanded] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -315,10 +500,12 @@ const BankCard = ({ bankName, themeColor, headerBg, data, error, loading }) => {
   }, [data]);
   
   const activeScenario = data && data.length > 0 ? data[selectedIndex] : null;
+  const quoteId = activeScenario ? `${bankName}-${activeScenario['Nombre tasa'] || activeScenario['Escenario / Banda']}` : null;
+  const isSelected = selectedQuotes?.some(q => q.id === quoteId);
 
   return (
     <>
-      <div className={`bg-white border-t-4 ${themeColor} border-x border-b border-slate-200 rounded-b-2xl shadow-sm flex flex-col h-fit relative`}>
+      <div className={`${isSelected ? 'ring-2 ring-[#1A4E5E]' : ''} bg-white border-t-4 ${themeColor} border-x border-b border-slate-200 rounded-b-2xl shadow-sm flex flex-col h-fit relative`}>
         <div className={`p-4 ${headerBg} border-b border-slate-100 flex justify-between items-center`}>
           <h4 className="font-black text-slate-800 tracking-tight">{bankName}</h4>
           <div className="flex items-center gap-2">
@@ -393,7 +580,18 @@ const BankCard = ({ bankName, themeColor, headerBg, data, error, loading }) => {
                   <span className="font-black text-sm">{activeScenario['Pago inicial']}</span>
                 </div>
               </div>
-
+                {isSelectionMode && (
+                <button 
+                  onClick={() => onToggleQuote(bankName, activeScenario)}
+                  className={`mt-6 w-full flex items-center justify-center gap-2 text-xs font-black py-3 rounded-xl transition-all border-2 ${
+                    isSelected 
+                      ? 'bg-[#1A4E5E] text-white border-[#1A4E5E] shadow-md shadow-[#1A4E5E]/20' 
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-[#1A4E5E] hover:text-[#1A4E5E]'
+                  }`}
+                >
+                  {isSelected ? <><Check size={16} /> Añadido a la Propuesta</> : <><PlusCircle size={16} /> Añadir a Propuesta</>}
+                </button>
+              )}
               <button 
                 onClick={() => setExpanded(true)}
                 className="mt-5 w-full flex items-center justify-center gap-2 text-[10px] font-bold text-[#1A4E5E] bg-slate-50 hover:bg-slate-100 border border-slate-200 py-2.5 rounded-xl transition-all"

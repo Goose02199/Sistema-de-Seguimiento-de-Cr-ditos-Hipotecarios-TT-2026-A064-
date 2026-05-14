@@ -20,6 +20,7 @@ import ClientAppointmentPicker from './components/ClientAppointmentPicker';
 import MortgageStepper from './components/MortgageApplication/MortgageStepper';
 // NUEVA IMPORTACIÓN
 import AgendaCalendar from './components/AgendaCalendar';
+import ClientQuotesView from './components/ClientQuotesView';
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('access_token'); 
@@ -95,6 +96,15 @@ function App() {
             element={
               <RoleGuard allowedRoles={['CLIENTE']}>
                 <MortgageStepper />
+              </RoleGuard>
+            } 
+          />
+
+          <Route 
+            path="cotizaciones" 
+            element={
+              <RoleGuard allowedRoles={['CLIENTE']}>
+                <ClientQuotesView />
               </RoleGuard>
             } 
           />

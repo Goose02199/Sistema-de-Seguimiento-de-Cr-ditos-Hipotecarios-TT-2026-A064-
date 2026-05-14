@@ -100,14 +100,14 @@ class LoanApplicationDetailView(APIView):
         application = get_object_or_404(LoanApplication, pk=pk)
         new_status = request.data.get('status')
         
-        # --- LÓGICA DE DECLINACIÓN Y REASIGNACIÓN ---
+        # --- 1. LÓGICA DE DECLINACIÓN Y REASIGNACIÓN ---
         if new_status == 'assigning_broker' and application.assigned_broker_id:
             IdentityClient.release_broker(application.assigned_broker_id)
             rechazados = application.declined_by or []
             rechazados.append(application.assigned_broker_id)
             application.declined_by = list(set(rechazados))
             
-            # 2. Desvinculamos al bróker actual
+            # Desvinculamos al bróker actual
             application.assigned_broker_id = None
             application.status = 'assigning_broker'
             application.save()
@@ -123,16 +123,35 @@ class LoanApplicationDetailView(APIView):
                 application.save()
                 return Response({"message": "Bróker declinado y reasignado con éxito."})
             else:
-                # Se queda en assigning_broker hasta que haya alguien disponible
                 return Response({"message": "Bróker declinado. En espera de nuevo bróker disponible."})
         
-        
-        if new_status:
-            # 1. Modificamos el estado DIRECTAMENTE en el modelo esquivando el read_only
+        # --- 2. LÓGICA DE ENVÍO DE COTIZACIONES AL CLIENTE ---
+        elif new_status == 'waiting_client_approval':
+            selected_quotes = request.data.get('selected_quotes')
+            if not selected_quotes or len(selected_quotes) == 0:
+                return Response(
+                    {"error": "Debes seleccionar al menos una cotización para enviar al cliente."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            application.selected_quotes = selected_quotes
             application.status = new_status
             application.save()
             
-            # 2. Usamos el serializador ÚNICAMENTE para formatear la respuesta de salida
+            # Aquí (en un futuro) podrías llamar a un servicio de Email
+            
+            serializer = LoanApplicationSerializer(application)
+            return Response({
+                "message": "Propuesta enviada al cliente exitosamente.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        # --- 3. ACTUALIZACIÓN GENÉRICA DE STATUS ---
+        elif new_status:
+            # Modificamos el estado DIRECTAMENTE en el modelo esquivando el read_only
+            application.status = new_status
+            application.save()
+            
             serializer = LoanApplicationSerializer(application)
             return Response({
                 "message": "Status actualizado correctamente",

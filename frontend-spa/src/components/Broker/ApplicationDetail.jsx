@@ -92,7 +92,7 @@ const ApplicationDetail = () => {
         <TabButton active={activeTab === 'analisis'} onClick={() => setActiveTab('analisis')} icon={<Activity size={18} />} label="Análisis de Riesgo e IA" />
         <TabButton active={activeTab === 'documentos'} onClick={() => setActiveTab('documentos')} icon={<ShieldCheck size={18} />} label="Documentos" />
         <TabButton active={activeTab === 'calculadora'} onClick={() => setActiveTab('calculadora')} icon={<FlaskConical size={18} />} label="Calculadora IA" />
-        {['waiting_appointment', 'appointment_scheduled', 'finished'].includes(app.status) && (
+        {['docs_approved', 'waiting_appointment', 'appointment_scheduled', 'finished'].includes(app.status) && (
           <TabButton 
             active={activeTab === 'cita'} 
             onClick={() => setActiveTab('cita')} 
@@ -231,7 +231,7 @@ const ApplicationDetail = () => {
         {activeTab === 'cita' && (
            <AppointmentScheduler app={app} onStatusUpdate={() => window.location.reload()} />
         )}
-        {activeTab === 'simulador' && <BankSimulatorTab app={app} />}
+        {activeTab === 'simulador' && <BankSimulatorTab app={app} onStatusUpdate={() => window.location.reload()} />}
       </div>
     </div>
   );

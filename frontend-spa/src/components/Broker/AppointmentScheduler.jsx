@@ -98,6 +98,12 @@ const AppointmentScheduler = ({ app, onStatusUpdate }) => {
       const payloadCita = { application: app.id, meeting_type: meetingType, location: location, duration_minutes: duration };
       await api.post(`/mortgage/appointments/`, payloadCita);
       
+      // --- NUEVA LÍNEA: Actualizamos el estatus de la aplicación ---
+      await api.patch(`/mortgage/applications/${app.id}/`, { status: 'waiting_appointment' });
+      
+      setIsEditing(false); // Salimos del modo edición
+      onStatusUpdate();
+      
       setIsEditing(false); // Salimos del modo edición
       onStatusUpdate(); 
     } catch (err) {

@@ -302,6 +302,12 @@ class LoanApplication(models.Model):
         blank=True,
         help_text="Lista de IDs de brókers que rechazaron la solicitud"
     )
+
+    selected_quotes = models.JSONField(
+        null=True, 
+        blank=True, 
+        help_text="Arreglo de JSONs con las cotizaciones elegidas por el bróker para enviarle al cliente."
+    )
     
     def check_and_update_document_status(self):
         """

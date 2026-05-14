@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
-import { Check, Clock, AlertCircle, Calendar, Loader2, UploadCloud, ArrowRight, Plus, Minus, User, Mail, Phone } from 'lucide-react';
+import { Check, Clock, AlertCircle, Calendar, Loader2, UploadCloud, ArrowRight, Plus, Minus, User, Mail, Phone, Landmark, FileText } from 'lucide-react';
 
 // 1. Orden cronológico de los estados (Happy Path) para calcular el progreso
 const STATUS_ORDER = [
@@ -112,6 +112,10 @@ const Overview = () => {
   const isRejected = isStatusRejected(currentStatus);
   const currentIndex = getBaseStatusIndex(currentStatus);
   const hasBrokerAssigned = currentIndex >= STATUS_ORDER.indexOf('broker_assigned');
+  // Banderas para acumular y desbloquear módulos en el tablero
+  const showQuotes = currentIndex >= STATUS_ORDER.indexOf('waiting_client_approval');
+  const showDocs = currentIndex >= STATUS_ORDER.indexOf('waiting_docs');
+  const showAppointment = currentIndex >= STATUS_ORDER.indexOf('waiting_appointment');
 
   const brokerInfo = application?.broker_info || {
     full_name: "Asesor Hipotecario",
@@ -265,74 +269,90 @@ const Overview = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
-        {/* --- NUEVA CARTILLA DEL BRÓKER (Se muestra condicionalmente) --- */}
+      
+    {/* --- TABLERO DE MÓDULOS ACTIVOS (Acumulables) --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+
+        {/* Módulo 1: Solicitud Base (Siempre visible) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
+          <div className="w-16 h-16 bg-slate-50 text-slate-600 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+            <FileText size={28} />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">Expediente Base</h3>
+          <p className="text-xs text-slate-500 mb-6 flex-1">Consulta los datos financieros capturados en tu solicitud original.</p>
+          <button onClick={() => navigate('/solicitud')} className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm flex justify-center items-center gap-2">
+            Ver Solicitud
+          </button>
+        </div>
+
+        {/* Módulo 2: Bróker Asignado */}
         {hasBrokerAssigned && (
-          <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center animate-in slide-in-from-bottom-4 duration-500">
-            <div className="w-20 h-20 bg-indigo-50 text-[#1A4E5E] rounded-full flex items-center justify-center mb-4 shadow-inner border border-indigo-100">
-              <User size={40} />
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-indigo-50 text-[#1A4E5E] rounded-full flex items-center justify-center mb-4 border border-indigo-100">
+              <User size={28} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900">{brokerInfo.full_name}</h3>
-            <p className="text-sm text-[#1A4E5E] font-semibold mb-4 bg-[#1A4E5E]/10 px-3 py-1 rounded-full">Tu Bróker Asignado</p>
-            
-            <div className="w-full space-y-3 mt-2 text-left">
-              <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <Mail size={18} className="text-slate-400" />
-                <span className="text-sm font-medium truncate" title={brokerInfo.email}>{brokerInfo.email}</span>
+            <h3 className="text-lg font-bold text-slate-900 line-clamp-1" title={brokerInfo.full_name}>{brokerInfo.full_name}</h3>
+            <p className="text-xs text-[#1A4E5E] font-semibold mb-4 bg-[#1A4E5E]/10 px-3 py-1 rounded-full">Bróker Asignado</p>
+            <div className="w-full space-y-2 mt-auto text-left">
+              <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                <Mail size={16} className="text-slate-400 shrink-0" />
+                <span className="text-xs font-medium truncate" title={brokerInfo.email}>{brokerInfo.email}</span>
               </div>
-              <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <Phone size={18} className="text-slate-400" />
-                <span className="text-sm font-medium">{brokerInfo.phone || 'No registrado'}</span>
+              <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                <Phone size={16} className="text-slate-400 shrink-0" />
+                <span className="text-xs font-medium">{brokerInfo.phone || 'No registrado'}</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* --- INFO CARD ADAPTADA --- */}
-        <div className={`p-8 rounded-2xl border-2 flex flex-col md:flex-row items-center gap-6 transition-all ${hasBrokerAssigned ? 'lg:col-span-2' : 'lg:col-span-3'}
-          ${isRejected ? 'bg-rose-50 border-rose-100' : 'bg-[#1A4E5E]/5 border-[#1A4E5E]/10'}`}>
-
-          <div className={`p-4 rounded-2xl shadow-lg ${isRejected ? 'bg-rose-500' : 'bg-[#1A4E5E]'} text-white`}>
-            {isRejected ? <AlertCircle size={32} /> : <Clock size={32} />}
-          </div>
-
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-slate-900">
-              {isRejected ? "Atención Requerida" : "Información del Paso Actual"}
-            </h3>
-            <p className="text-slate-600 mt-1">
-              Tu solicitud se encuentra en el estado: <span className="font-bold text-[#1A4E5E] uppercase">{currentStatus.replace(/_/g, ' ')}</span>.
+        {/* Módulo 3: Cotizaciones / Propuesta Financiera */}
+        {showQuotes && (
+          <div className={`bg-white p-6 rounded-2xl shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow animate-in zoom-in-95 duration-500 border-2 ${isRejected ? 'border-rose-200 ring-1 ring-rose-50' : 'border-blue-200 ring-1 ring-blue-50'}`}>
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 border ${isRejected ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+              <Landmark size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Propuesta Financiera</h3>
+            <p className="text-xs text-slate-500 mb-6 flex-1">
+              {isRejected ? 'Rechazaste la propuesta. Espera una nueva de tu bróker.' : 'Revisa y elige la opción hipotecaria armada por tu bróker.'}
             </p>
+            <button 
+              onClick={() => navigate('/cotizaciones')} 
+              className={`w-full py-2.5 font-bold rounded-xl transition-colors text-sm flex justify-center items-center gap-2 shadow-sm ${isRejected ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+            >
+              Revisar Opciones <ArrowRight size={16} />
+            </button>
           </div>
+        )}
 
-          {/* LOGICA INTELIGENTE DEL BOTÓN */}
-          {currentStatus === 'waiting_appointment' ? (
-            <button 
-              onClick={() => navigate(`/agendamiento/${application.appointment.id}`)}
-              className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap"
-            >
-              <Calendar size={20} /> Agendar Cita de Firma
+        {/* Módulo 4: Documentación KYC */}
+        {showDocs && (
+          <div className="bg-white p-6 rounded-2xl border-2 border-indigo-200 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow ring-1 ring-indigo-50 animate-in zoom-in-95 duration-500">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 border border-indigo-100">
+              <UploadCloud size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Expediente Legal</h3>
+            <p className="text-xs text-slate-500 mb-6 flex-1">Sube tus identificaciones y comprobantes para el banco.</p>
+            <button onClick={() => navigate('/documentos')} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors text-sm flex justify-center items-center gap-2 shadow-sm">
+              Subir Documentos <ArrowRight size={16} />
             </button>
-          ) : ['waiting_docs', 'docs_review', 'docs_approved'].includes(currentStatus) ? (
-            <button 
-              onClick={() => navigate('/documentos')}
-              className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap"
-            >
-              <UploadCloud size={20} /> Subir Documentos
-            </button>
-          ) : (
-            <button 
-              onClick={() => navigate('/solicitud')}
-              className="bg-[#1A4E5E] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#133a46] transition-transform hover:scale-105 shadow-md flex items-center gap-2 whitespace-nowrap"
-            >
-              Gestionar Trámite <ArrowRight size={20} />
-            </button>
-          )}
-          
-        </div>
+          </div>
+        )}
 
-      </div>
+        {/* Módulo 5: Agendamiento de Firma */}
+        {showAppointment && (
+          <div className="bg-white p-6 rounded-2xl border-2 border-emerald-200 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow ring-1 ring-emerald-50 animate-in zoom-in-95 duration-500">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4 border border-emerald-100">
+              <Calendar size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Firma de Escrituras</h3>
+            <p className="text-xs text-slate-500 mb-6 flex-1">Agenda tu cita final en la notaría para firmar tu crédito.</p>
+            <button onClick={() => navigate(`/agendamiento/${application.appointment?.id}`)} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors text-sm flex justify-center items-center gap-2 shadow-sm">
+              Agendar Cita <Calendar size={16} />
+            </button>
+          </div>
+        )}
+      </div>  
     </div>
   );
 };
