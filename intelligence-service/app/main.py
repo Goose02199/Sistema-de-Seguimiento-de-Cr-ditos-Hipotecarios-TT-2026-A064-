@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
@@ -9,6 +10,7 @@ from .core.recommender import BankRecommender
 from .engines.banorte.engine import orquestar_cotizacion_banorte
 from .engines.santander.engine import orquestar_cotizacion_santander
 from .engines.scotiabank.engine import orquestar_cotizacion_scotiabank
+from .engines.amortizacion.engine import generar_tabla_amortizacion, generar_resumen_amortizacion, generar_pdf_amortizacion, generar_excel_amortizacion
 
 import traceback
 import os
@@ -54,6 +56,16 @@ class CotizacionBanorteRequest(BaseModel):
     """
     datos_usuario: Dict[str, Any]
     productos_banco: List[Dict[str, Any]]
+
+class AmortizacionRequest(BaseModel):
+    monto_credito: float
+    tasa_anual: float
+    plazo_meses: int
+    mensualidad: float
+    pago_inicial: float = 0.0
+    formato: str = "json" # "json" o "pdf"
+    datos_usuario: dict = {}
+    datos_credito: dict = {}
 
 # --- ENDPOINTS ---
 
@@ -144,3 +156,38 @@ async def cotizar_scotiabank(payload: CotizacionBanorteRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Fallo interno en cotización Scotiabank: {str(e)}")
+
+@app.post("/api/v1/amortizacion/")
+def calcular_amortizacion(req: AmortizacionRequest):
+    try:
+        # Generar DataFrame
+        df = generar_tabla_amortizacion(
+            req.monto_credito, req.tasa_anual, req.plazo_meses, req.mensualidad
+        )
+        resumen = generar_resumen_amortizacion(df, req.pago_inicial)
+
+        if req.formato == "json":
+            return {
+                "exito": True,
+                "resumen": resumen,
+                "tabla": df.to_dict(orient="records")
+            }
+        
+        elif req.formato == "pdf":
+            pdf_buffer = generar_pdf_amortizacion(req.datos_usuario, req.datos_credito, resumen, df)
+            return StreamingResponse(
+                pdf_buffer, 
+                media_type="application/pdf",
+                headers={"Content-Disposition": "attachment; filename=amortizacion.pdf"}
+            )
+            
+        elif req.formato == "excel":
+            excel_buffer = generar_excel_amortizacion(df, resumen)
+            return StreamingResponse(
+                excel_buffer, 
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": "attachment; filename=amortizacion.xlsx"}
+            )
+            
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"exito": False, "error": str(e)})
